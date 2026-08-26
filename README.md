@@ -11,6 +11,8 @@ data** behind a swappable data layer.
 
 Phase C — **Executive Overview** — implemented. See `docs/` for the full PRD and prototype plan.
 
+**Live:** https://edwin-pmm-dashboard.vercel.app
+
 ## Stack
 
 React 18 · TypeScript · Vite · Tailwind v4 · Recharts · Zustand
