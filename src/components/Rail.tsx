@@ -46,7 +46,7 @@ export function Rail() {
       >
         Prototype · synthetic data
         <br />
-        Phases C–D of 7
+        Phases C–E of 7
       </div>
     </nav>
   );

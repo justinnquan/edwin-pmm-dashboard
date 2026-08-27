@@ -28,7 +28,6 @@ export const NAV: NavItem[] = [
     path: "/timeline",
     title: "Activity Timeline",
     subtitle: "Campaigns and product releases against the product metrics.",
-    phase: "Phase E",
   },
   {
     label: "Campaign Impact",
@@ -55,7 +54,6 @@ export const NAV: NavItem[] = [
     path: "/calendar",
     title: "Campaign Calendar",
     subtitle: "Campaigns and product events laid out on a calendar.",
-    phase: "Phase E",
   },
 ];
 
