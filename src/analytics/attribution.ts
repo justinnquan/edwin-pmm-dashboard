@@ -67,5 +67,9 @@ export function campaignImpact(
     raw: post / pre - 1,
     expected: bPost / bPre - 1,
     material: Math.abs(adjusted) >= MATERIALITY,
+    pre,
+    post,
+    bPre,
+    bPost,
   };
 }

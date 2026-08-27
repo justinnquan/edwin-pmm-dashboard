@@ -90,4 +90,8 @@ export type CampaignImpact =
       raw: number;
       expected: number;
       material: boolean;
+      pre: number;
+      post: number;
+      bPre: number;
+      bPost: number;
     };
