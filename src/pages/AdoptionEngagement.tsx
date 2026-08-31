@@ -13,7 +13,9 @@ import { activationFunnel, activationGauges, featureAdoption, seatsOf } from "..
 import { useFilters } from "../state/filterStore";
 import { T } from "../theme/tokens";
 import { Card, Chip } from "../components/primitives";
+import { EmptyState } from "../components/states";
 import { Funnel, Gauge, FeatureBars, MiniTrend } from "../components/AdoptionViz";
+import { KPI_INFO } from "../components/kpiInfo";
 import { int } from "../analytics/format";
 
 const TREND_METRICS: Metric[] = ["resourceOpens", "classesCreated", "assignmentsCreated"];
@@ -36,14 +38,9 @@ export default function AdoptionEngagement() {
 
   if (!model) {
     return (
-      <Card className="p-6">
-        <div className="text-base font-bold" style={{ color: T.ink }}>
-          No teachers match this segment
-        </div>
-        <div className="mt-1 text-sm" style={{ color: T.muted }}>
-          Reset a filter to bring data back.
-        </div>
-      </Card>
+      <EmptyState title="No teachers match this segment">
+        Reset a filter to bring data back.
+      </EmptyState>
     );
   }
 
@@ -62,7 +59,7 @@ export default function AdoptionEngagement() {
       </div>
 
       {/* Funnel + gauges */}
-      <section className="grid gap-4" style={{ gridTemplateColumns: "minmax(0,1.6fr) minmax(0,1fr)" }}>
+      <section className="grid gap-4 grid-cols-1 lg:grid-cols-[1.6fr_1fr]">
         <Card className="p-5">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-extrabold uppercase" style={{ color: T.navy, letterSpacing: "0.07em" }}>
@@ -81,10 +78,10 @@ export default function AdoptionEngagement() {
 
         <div className="flex flex-col gap-4">
           <Card className="p-5">
-            <Gauge gauge={model.gauges.day7} />
+            <Gauge gauge={model.gauges.day7} info={KPI_INFO.day7} />
           </Card>
           <Card className="p-5">
-            <Gauge gauge={model.gauges.monthly} />
+            <Gauge gauge={model.gauges.monthly} info={KPI_INFO.monthly} />
           </Card>
         </div>
       </section>

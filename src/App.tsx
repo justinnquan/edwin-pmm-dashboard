@@ -1,12 +1,19 @@
+import { lazy } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { Layout } from "./components/Layout";
-import ExecutiveOverview from "./pages/ExecutiveOverview";
-import MarketingPerformance from "./pages/MarketingPerformance";
-import CampaignImpact, { CampaignPicker } from "./pages/CampaignImpact";
-import ActivityTimeline from "./pages/ActivityTimeline";
-import CampaignCalendar from "./pages/CampaignCalendar";
-import AdoptionEngagement from "./pages/AdoptionEngagement";
-import Segments from "./pages/Segments";
+
+/* Route-level code-splitting: each page (and its Recharts usage) loads on
+   demand behind the Layout's Suspense fallback, keeping the initial chunk lean. */
+const ExecutiveOverview = lazy(() => import("./pages/ExecutiveOverview"));
+const MarketingPerformance = lazy(() => import("./pages/MarketingPerformance"));
+const CampaignImpact = lazy(() => import("./pages/CampaignImpact"));
+const CampaignPicker = lazy(() =>
+  import("./pages/CampaignImpact").then((m) => ({ default: m.CampaignPicker }))
+);
+const ActivityTimeline = lazy(() => import("./pages/ActivityTimeline"));
+const CampaignCalendar = lazy(() => import("./pages/CampaignCalendar"));
+const AdoptionEngagement = lazy(() => import("./pages/AdoptionEngagement"));
+const Segments = lazy(() => import("./pages/Segments"));
 
 export default function App() {
   return (

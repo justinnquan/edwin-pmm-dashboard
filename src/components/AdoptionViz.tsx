@@ -17,6 +17,7 @@ import { fmtShort } from "../data/calendar";
 import { pct, int } from "../analytics/format";
 import type { FunnelStage, Gauge as GaugeData, FeatureAdoption } from "../analytics/adoption";
 import type { SeriesPoint } from "../data/schema";
+import { InfoTip, type KpiInfo } from "./InfoTip";
 
 /* --- Activation funnel ----------------------------------------------------- */
 export function Funnel({ stages }: { stages: FunnelStage[] }) {
@@ -71,16 +72,20 @@ export function Funnel({ stages }: { stages: FunnelStage[] }) {
 }
 
 /* --- OKR gauge (horizontal bar vs target marker) --------------------------- */
-export function Gauge({ gauge }: { gauge: GaugeData }) {
+export function Gauge({ gauge, info }: { gauge: GaugeData; info?: KpiInfo }) {
   const met = gauge.value >= gauge.target;
   const color = met ? T.good : T.warn;
   return (
     <div>
-      <div className="flex items-baseline justify-between">
-        <span className="text-xs font-bold uppercase" style={{ color: T.muted, letterSpacing: "0.05em" }}>
+      <div className="flex items-baseline justify-between gap-2">
+        <span
+          className="text-xs font-bold uppercase flex items-center gap-1.5"
+          style={{ color: T.muted, letterSpacing: "0.05em" }}
+        >
           {gauge.label}
+          {info && <InfoTip label={gauge.label} info={info} />}
         </span>
-        <span className="text-xs" style={{ ...num, color: T.muted }}>
+        <span className="text-xs shrink-0" style={{ ...num, color: T.muted }}>
           target {pct(gauge.target)}
         </span>
       </div>

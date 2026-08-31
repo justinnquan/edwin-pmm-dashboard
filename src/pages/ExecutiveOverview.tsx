@@ -16,7 +16,9 @@ import { campaignsInWindow, reachedIn, campaignImpact } from "../analytics/attri
 import { buildInsights } from "../analytics/insights";
 import { useFilters } from "../state/filterStore";
 import { Card } from "../components/primitives";
+import { EmptyState } from "../components/states";
 import { KpiCard } from "../components/KpiCard";
+import { KPI_INFO } from "../components/kpiInfo";
 import { InsightStrip } from "../components/InsightStrip";
 import { TrendChart } from "../components/TrendChart";
 import { ImpactRow } from "../components/DrillPanel";
@@ -87,14 +89,9 @@ export default function ExecutiveOverview() {
 
   if (!ids.length || !model) {
     return (
-      <Card className="p-6">
-        <div className="text-base font-bold" style={{ color: T.ink }}>
-          No teachers match this segment
-        </div>
-        <div className="mt-1 text-sm" style={{ color: T.muted }}>
-          Reset a filter to bring data back.
-        </div>
-      </Card>
+      <EmptyState title="No teachers match this segment">
+        Reset a filter to bring data back.
+      </EmptyState>
     );
   }
 
@@ -110,6 +107,7 @@ export default function ExecutiveOverview() {
         <KpiCard
           primary
           label="Active teacher rate"
+          info={KPI_INFO.activeRate}
           value={model.activeRate == null ? "—" : (model.activeRate * 100).toFixed(1)}
           unit="%"
           raw={pct(model.wauCh?.raw)}
@@ -118,6 +116,7 @@ export default function ExecutiveOverview() {
         />
         <KpiCard
           label="Weekly active teachers"
+          info={KPI_INFO.wau}
           value={int(model.wauNow)}
           raw={pct(model.wauCh?.raw)}
           adjusted={model.wauCh?.adjusted}
@@ -125,6 +124,7 @@ export default function ExecutiveOverview() {
         />
         <KpiCard
           label="Adoption rate"
+          info={KPI_INFO.adoption}
           value={model.ahaRate == null ? "—" : (model.ahaRate * 100).toFixed(0)}
           unit="%"
           raw={pct(model.ahaCh?.raw)}
@@ -133,6 +133,7 @@ export default function ExecutiveOverview() {
         />
         <KpiCard
           label="4-week retention"
+          info={KPI_INFO.retention}
           value={model.ret == null ? "—" : (model.ret * 100).toFixed(0)}
           unit="%"
           note="Share of a cohort still active after 4 weeks"
@@ -140,6 +141,7 @@ export default function ExecutiveOverview() {
         <KpiCard
           caveat
           label="Campaign-associated"
+          info={KPI_INFO.campaignAssociated}
           value={model.assoc == null ? "—" : pct(model.assoc)}
           note={
             model.assoc == null

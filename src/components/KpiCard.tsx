@@ -6,6 +6,7 @@ import type { ReactNode } from "react";
 import { T, num } from "../theme/tokens";
 import { pct } from "../analytics/format";
 import { Card, Chip } from "./primitives";
+import { InfoTip, type KpiInfo } from "./InfoTip";
 
 export function KpiCard({
   label,
@@ -16,6 +17,7 @@ export function KpiCard({
   note,
   caveat,
   primary,
+  info,
 }: {
   label: string;
   value: string;
@@ -25,6 +27,7 @@ export function KpiCard({
   note?: ReactNode;
   caveat?: boolean;
   primary?: boolean;
+  info?: KpiInfo;
 }) {
   const tone = adjusted == null ? T.muted : adjusted >= 0 ? T.good : T.warn;
   return (
@@ -32,10 +35,11 @@ export function KpiCard({
       <div>
         <div className="flex items-start justify-between gap-2">
           <div
-            className="text-xs font-bold uppercase"
+            className="text-xs font-bold uppercase flex items-center gap-1.5"
             style={{ color: T.muted, letterSpacing: "0.06em" }}
           >
             {label}
+            {info && <InfoTip label={label} info={info} />}
           </div>
           {caveat && <Chip tone="warn">Association</Chip>}
         </div>
