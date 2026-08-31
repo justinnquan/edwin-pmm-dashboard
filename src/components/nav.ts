@@ -40,14 +40,12 @@ export const NAV: NavItem[] = [
     path: "/adoption",
     title: "Adoption & Engagement",
     subtitle: "The activation funnel and the Day-7 / monthly-active OKR gauges.",
-    phase: "Phase F",
   },
   {
     label: "Segments",
     path: "/segments",
     title: "Segments",
     subtitle: "Where the opportunity is, by province, grade, and subject.",
-    phase: "Phase F",
   },
   {
     label: "Campaign Calendar",

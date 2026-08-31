@@ -5,7 +5,8 @@ import MarketingPerformance from "./pages/MarketingPerformance";
 import CampaignImpact, { CampaignPicker } from "./pages/CampaignImpact";
 import ActivityTimeline from "./pages/ActivityTimeline";
 import CampaignCalendar from "./pages/CampaignCalendar";
-import { ComingSoon } from "./pages/Placeholder";
+import AdoptionEngagement from "./pages/AdoptionEngagement";
+import Segments from "./pages/Segments";
 
 export default function App() {
   return (
@@ -17,8 +18,8 @@ export default function App() {
           <Route path="/campaign" element={<CampaignPicker />} />
           <Route path="/campaign/:id" element={<CampaignImpact />} />
           <Route path="/timeline" element={<ActivityTimeline />} />
-          <Route path="/adoption" element={<ComingSoon phase="Phase F" />} />
-          <Route path="/segments" element={<ComingSoon phase="Phase F" />} />
+          <Route path="/adoption" element={<AdoptionEngagement />} />
+          <Route path="/segments" element={<Segments />} />
           <Route path="/calendar" element={<CampaignCalendar />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
