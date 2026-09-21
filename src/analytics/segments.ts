@@ -39,12 +39,14 @@ export interface SegmentRow {
   adoptionRate: number | null;
   retention: number | null;
   assoc: number | null; // exposure-weighted campaign-associated change
+  /** Why `assoc` is null, so the table can say rather than show a bare dash. */
+  assocReason: "no-campaigns" | "none-cleared" | null;
 }
 
 function rowFor(ids: number[], key: string, windowDays: number): SegmentRow {
   const seats = ids.reduce((s, id) => s + provisioned(TODAY) * CELLS[id].weight, 0);
   if (!ids.length || seats < MIN_N) {
-    return { key, seats, gated: true, wau: null, activeRate: null, adoptionRate: null, retention: null, assoc: null };
+    return { key, seats, gated: true, wau: null, activeRate: null, adoptionRate: null, retention: null, assoc: null, assocReason: null };
   }
   const wau = windowMean("wau", ids, TODAY, 7);
   const activeRate = wau != null && seats > 0 ? wau / seats : null;
@@ -54,7 +56,8 @@ function rowFor(ids: number[], key: string, windowDays: number): SegmentRow {
 
   let wsum = 0;
   let w = 0;
-  for (const c of campaignsInWindow(30)) {
+  const considered = campaignsInWindow(30);
+  for (const c of considered) {
     const r = campaignImpact(c, c.objectiveMetric, ids, windowDays);
     if (r.state === "ok") {
       wsum += r.adjusted * r.n;
@@ -62,8 +65,10 @@ function rowFor(ids: number[], key: string, windowDays: number): SegmentRow {
     }
   }
   const assoc = w ? wsum / w : null;
+  const assocReason =
+    assoc != null ? null : considered.length === 0 ? "no-campaigns" : "none-cleared";
 
-  return { key, seats, gated: false, wau, activeRate, adoptionRate, retention, assoc };
+  return { key, seats, gated: false, wau, activeRate, adoptionRate, retention, assoc, assocReason };
 }
 
 /** Comparison rows for a dimension, within an optional base segment filter. */

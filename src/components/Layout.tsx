@@ -10,7 +10,8 @@ import { Suspense, useState } from "react";
 import { Outlet, useLocation, NavLink } from "react-router-dom";
 import type { SummableMetric } from "../data/schema";
 import { GRADES, SUBJECTS } from "../data/segments";
-import { MIN_N } from "../analytics/constants";
+import { MIN_N, MATERIALITY, CONFIDENCE_Z, BASELINE_SMOOTH } from "../analytics/constants";
+import { pctAbs } from "../analytics/format";
 import { useFilters } from "../state/filterStore";
 import { T } from "../theme/tokens";
 import { Rail } from "./Rail";
@@ -151,13 +152,13 @@ export function Layout() {
             <b style={{ color: T.navy }}>Data as of</b> 26 Aug 2026 · synthetic
           </span>
           <span>
-            <b style={{ color: T.navy }}>Baseline</b> prior year, rescaled for seat growth
+            <b style={{ color: T.navy }}>Baseline</b> prior year, ±{BASELINE_SMOOTH}-day smoothed, rescaled for seat growth
           </span>
           <span>
             <b style={{ color: T.navy }}>Minimum sample</b> {MIN_N} exposed teachers
           </span>
           <span>
-            <b style={{ color: T.navy }}>Materiality</b> 5% adjusted
+            <b style={{ color: T.navy }}>Materiality</b> {pctAbs(MATERIALITY)} floor or {CONFIDENCE_Z}× its own error, whichever is higher
           </span>
           <span style={{ color: T.warn, fontWeight: 700 }}>Association, not causation</span>
           <button

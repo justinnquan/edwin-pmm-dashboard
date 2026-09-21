@@ -2,7 +2,8 @@
    /components — "WHAT CHANGED" INSIGHT STRIP
 =========================================================================== */
 import { T } from "../theme/tokens";
-import { MIN_N } from "../analytics/constants";
+import { MIN_N, MIN_DAILY_ACTIVE, MATERIALITY, CONFIDENCE_Z } from "../analytics/constants";
+import { pctAbs } from "../analytics/format";
 import type { Insight, InsightTone } from "../analytics/insights";
 import { Card, Chip } from "./primitives";
 
@@ -30,8 +31,9 @@ export function InsightStrip({
           No material changes to report
         </div>
         <div className="mt-1 text-xs" style={{ color: T.muted }}>
-          Nothing in this segment cleared the 5% seasonally-adjusted threshold and the {MIN_N}-teacher
-          minimum.
+          Nothing in this segment cleared its materiality bar — a {pctAbs(MATERIALITY)} floor or{" "}
+          {CONFIDENCE_Z}× the estimate's own uncertainty, whichever is higher — along with the{" "}
+          {MIN_N}-teacher and {MIN_DAILY_ACTIVE}-daily-active minimums.
         </div>
       </Card>
     );
@@ -58,7 +60,8 @@ export function InsightStrip({
         <Card className="p-4" style={{ background: T.bg }}>
           <Chip>Suppressed</Chip>
           <div className="mt-2 text-sm font-semibold" style={{ color: T.soft, lineHeight: 1.45 }}>
-            {suppressed} change{suppressed === 1 ? "" : "s"} hidden — sample below {MIN_N} teachers.
+            {suppressed} change{suppressed === 1 ? "" : "s"} hidden — too few teachers or too little
+            activity in the window to compare reliably.
           </div>
           <div className="mt-1 text-xs" style={{ color: T.muted }}>
             Widen the segment or the date range to see them.

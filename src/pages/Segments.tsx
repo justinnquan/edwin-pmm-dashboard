@@ -7,7 +7,7 @@
 import { useMemo, useState } from "react";
 import { CELLS } from "../data/segments";
 import { MIN_N } from "../analytics/constants";
-import { pct, int } from "../analytics/format";
+import { pct, pctAbs, int } from "../analytics/format";
 import { cellFilter } from "../analytics/kpis";
 import {
   DIMENSIONS,
@@ -22,17 +22,43 @@ import { useFilters } from "../state/filterStore";
 import { T, num } from "../theme/tokens";
 import { Card, Chip } from "../components/primitives";
 
-const num2 = (v: number | null, kind: "pct" | "int"): string =>
-  v == null ? "—" : kind === "pct" ? pct(v) : int(v);
+/** "rate" is a level (16.0%), "change" is a movement (+16.0%). Rendering a
+    level with the signed formatter reads as an increase that never happened. */
+type Kind = "rate" | "change" | "int";
+const num2 = (v: number | null, kind: Kind): string =>
+  v == null ? "—" : kind === "change" ? pct(v) : kind === "rate" ? pctAbs(v) : int(v);
 
-function Cellv({ row, k, kind }: { row: SegmentRow; k: keyof SegmentRow; kind: "pct" | "int" }) {
-  if (row.gated) return <span style={{ color: T.muted }}>—</span>;
+/* A dash always carries its reason, so a suppressed cell never reads as a zero. */
+const ASSOC_REASON: Record<NonNullable<SegmentRow["assocReason"]>, string> = {
+  "no-campaigns": "No campaigns launched in the last 30 days for this segment.",
+  "none-cleared":
+    "Campaigns ran, but none cleared their materiality, sample-size and activity-volume gates here.",
+};
+
+function Cellv({ row, k, kind }: { row: SegmentRow; k: keyof SegmentRow; kind: Kind }) {
+  if (row.gated)
+    return (
+      <span
+        style={{ color: T.muted }}
+        title={`Fewer than ${MIN_N} provisioned teachers in this segment — too small to report reliably.`}
+      >
+        —
+      </span>
+    );
   const v = row[k] as number | null;
-  const color =
-    k === "assoc" && v != null ? (v >= 0 ? T.good : T.warn) : T.ink;
-  return (
-    <span style={{ ...num, color }}>{num2(v, kind)}</span>
-  );
+  if (v == null) {
+    const why =
+      k === "assoc" && row.assocReason
+        ? ASSOC_REASON[row.assocReason]
+        : "Not enough data in the current window to compute this.";
+    return (
+      <span style={{ color: T.muted }} title={why}>
+        —
+      </span>
+    );
+  }
+  const color = k === "assoc" ? (v >= 0 ? T.good : T.warn) : T.ink;
+  return <span style={{ ...num, color }}>{num2(v, kind)}</span>;
 }
 
 export default function Segments() {
@@ -107,16 +133,16 @@ export default function Segments() {
                     <Cellv row={r} k="wau" kind="int" />
                   </td>
                   <td className="py-3 px-3 text-sm text-right">
-                    <Cellv row={r} k="activeRate" kind="pct" />
+                    <Cellv row={r} k="activeRate" kind="rate" />
                   </td>
                   <td className="py-3 px-3 text-sm text-right">
-                    <Cellv row={r} k="adoptionRate" kind="pct" />
+                    <Cellv row={r} k="adoptionRate" kind="rate" />
                   </td>
                   <td className="py-3 px-3 text-sm text-right">
-                    <Cellv row={r} k="retention" kind="pct" />
+                    <Cellv row={r} k="retention" kind="rate" />
                   </td>
                   <td className="py-3 pl-3 text-sm text-right">
-                    <Cellv row={r} k="assoc" kind="pct" />
+                    <Cellv row={r} k="assoc" kind="change" />
                   </td>
                 </tr>
               ))}
@@ -126,6 +152,7 @@ export default function Segments() {
         {suppressed > 0 && (
           <div className="mt-3 text-xs" style={{ color: T.muted }}>
             {suppressed} segment{suppressed === 1 ? "" : "s"} gated below the {MIN_N}-teacher minimum.
+            Hover any dash to see why that figure is suppressed.
           </div>
         )}
       </Card>
@@ -136,7 +163,7 @@ export default function Segments() {
           Where is the opportunity
         </h2>
         <p className="mt-1 mb-4 text-xs" style={{ color: T.muted }}>
-          Province × grade cells ranked by teachers below the {pct(MONTHLY_TARGET)} monthly-active
+          Province × grade cells ranked by teachers below the {pctAbs(MONTHLY_TARGET)} monthly-active
           target — the largest gaps, sized by population. Min-N gated.
         </p>
         {opportunities.length === 0 ? (
@@ -161,7 +188,7 @@ export default function Segments() {
                   </div>
                 </div>
                 <span className="text-xs shrink-0 text-right" style={{ width: 130, color: T.muted, ...num }}>
-                  {pct(o.activeRate)} active · {pct(o.gapToTarget)} gap
+                  {pctAbs(o.activeRate)} active · {pctAbs(o.gapToTarget)} gap
                 </span>
               </div>
             ))}

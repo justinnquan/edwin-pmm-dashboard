@@ -5,17 +5,19 @@
    analytics. Wording mirrors the PRD's KPI framework (Phase 4).
 =========================================================================== */
 import type { KpiInfo } from "./InfoTip";
+import { MATERIALITY } from "../analytics/constants";
+import { pctAbs } from "../analytics/format";
 
 export const KPI_INFO = {
   activeRate: {
     definition: "Active teachers as a share of provisioned teachers, per period. The north-star: PMM's real lever is activating provisioned seats.",
     calculation: "Weekly active teachers ÷ provisioned teachers, over the trailing 7 days.",
-    limitation: "Needs a reliable provisioned denominator; highly seasonal, so read the adjusted figure.",
+    limitation: "Needs a reliable provisioned denominator — in this prototype that denominator is modelled, not measured. Highly seasonal, so read the adjusted figure.",
   },
   wau: {
     definition: "Distinct teachers with at least one meaningful action in a rolling 7 days.",
     calculation: "Count of distinct active teachers over the trailing 7 days, in the current segment.",
-    limitation: "Strongly seasonal (school calendar); the raw figure is paired with a seasonally-adjusted one.",
+    limitation: "Strongly seasonal (school calendar); the raw figure is paired with a seasonally-adjusted one, measured against a ±3-day smoothed prior-year baseline.",
   },
   adoption: {
     definition: "Share of active teachers who performed a high-value 'aha' behaviour — creating a class or an assignment.",
@@ -24,13 +26,13 @@ export const KPI_INFO = {
   },
   retention: {
     definition: "Share of a start cohort still active four weeks later — the durability test.",
-    calculation: "Active in week 4 ÷ cohort size, averaged across the current segment.",
+    calculation: "Active in week 4 ÷ cohort size, seat-weighted across the cells in the current segment.",
     limitation: "Needs sufficient history depth; small cohorts are noisy.",
   },
   campaignAssociated: {
-    definition: "Change in resource engagement for exposed teachers after recent campaigns, versus the seasonal baseline.",
-    calculation: "Exposure-weighted mean of each recent campaign's seasonally-adjusted before/after change.",
-    limitation: "Association only — confounded by seasonality and selection. Renders only past the minimum-sample gate.",
+    definition: "Change in each recent campaign's own declared objective metric for exposed teachers, versus the seasonal baseline.",
+    calculation: "Exposure-weighted mean of each recent campaign's seasonally-adjusted before/after change, using the objective the campaign was authored against.",
+    limitation: `Association only — confounded by seasonality and selection. A campaign contributes only if it clears a ${pctAbs(MATERIALITY)} floor or its own uncertainty band (whichever is higher), the minimum-sample gate, and a minimum activity-volume gate.`,
   },
   day7: {
     definition: "Share of newly invited teachers who reach an activation event within 7 days (Edwin OKR ≥ 70%).",

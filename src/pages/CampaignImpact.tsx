@@ -1,7 +1,7 @@
 /* ===========================================================================
    /pages — CAMPAIGN IMPACT (§04)
    Summary · product impact · Before vs. After (window + seasonal toggle) ·
-   send-cohort vs. matched baseline · cohort progression · interpretation.
+   targeted segment vs. rest of platform · cohort progression · interpretation.
    Reached from the Marketing Performance table or the Overview timeline.
 =========================================================================== */
 import { useMemo, useState } from "react";
@@ -19,8 +19,8 @@ import {
 import type { CampaignDef, Metric } from "../data/schema";
 import { CAMPAIGNS } from "../data/campaigns";
 import { fmtShort } from "../data/calendar";
-import { MIN_N, METRIC_LABEL } from "../analytics/constants";
-import { pct, int } from "../analytics/format";
+import { MIN_N, MATERIALITY, METRIC_LABEL } from "../analytics/constants";
+import { pct, pctAbs, int } from "../analytics/format";
 import { cellFilter } from "../analytics/kpis";
 import { campaignImpact } from "../analytics/attribution";
 import {
@@ -249,7 +249,7 @@ function Detail({ campaign }: { campaign: CampaignDef }) {
               <p className="mt-2 text-xs" style={{ color: T.muted, lineHeight: 1.6 }}>
                 Raw {pct(impact.raw)}. Prior-year baseline moved {pct(impact.expected)} over the same
                 calendar window; the adjusted figure divides the two. Called material only when it
-                clears both the 5% floor and its own uncertainty band (here ±
+                clears both the {pctAbs(MATERIALITY)} floor and its own uncertainty band (here ±
                 {(impact.threshold * 100).toFixed(1)}%), so it is{" "}
                 <b style={{ color: impact.material ? (impact.adjusted > 0 ? T.good : T.warn) : T.soft }}>
                   {impact.material ? "material" : "not material"}
@@ -325,14 +325,19 @@ function Detail({ campaign }: { campaign: CampaignDef }) {
             Cohort progression · week over week
           </h2>
           {verdict !== "insufficient" && (
-            <Chip tone={verdict === "sustained" ? "good" : "warn"}>
-              {verdict === "sustained" ? "Sustained shift" : "One-week spike"}
+            <Chip tone={verdict === "sustained" ? "good" : verdict === "faded" ? "muted" : "warn"}>
+              {verdict === "sustained"
+                ? "Sustained shift"
+                : verdict === "faded"
+                ? "Held, then faded"
+                : "One-week spike"}
             </Chip>
           )}
         </div>
         <p className="mt-1 text-xs" style={{ color: T.muted }}>
-          Adjusted change for {METRIC_LABEL[metric]}, tracked each week since launch, to tell a lasting
-          shift from a spike.
+          Adjusted change for {METRIC_LABEL[metric]}, tracked each week since launch. Only weeks that
+          clear their own uncertainty band count toward the verdict, so a noisy run cannot read as a
+          lasting shift.
         </p>
         {prog.filter((p) => p.adjusted != null).length >= 2 ? (
           <div style={{ width: "100%", height: 220 }} className="mt-3">

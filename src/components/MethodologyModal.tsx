@@ -6,24 +6,24 @@
 =========================================================================== */
 import { useEffect, useRef } from "react";
 import { T } from "../theme/tokens";
-import { MIN_N, MATERIALITY } from "../analytics/constants";
-import { pct } from "../analytics/format";
+import { MIN_N, MIN_DAILY_ACTIVE, MATERIALITY, CONFIDENCE_Z, BASELINE_SMOOTH } from "../analytics/constants";
+import { pctAbs } from "../analytics/format";
 
 const METHODS = [
   {
     name: "Before vs. after (seasonally adjusted)",
     label: "Observational",
-    body: "The send cohort's product behaviour in the pre-window vs. the post-window, divided by how the prior-year baseline moved over the same calendar window. Windows: 7 / 14 / 30 days.",
+    body: `The send cohort's product behaviour in the pre-window vs. the post-window, divided by how the prior-year baseline moved over the same calendar window. The baseline is a centred ±${BASELINE_SMOOTH}-day mean around the matching day 364 days back, not a single day, so one noisy day a year ago cannot manufacture an effect. Windows: 7 / 14 / 30 days.`,
   },
   {
-    name: "Send-cohort vs. matched baseline",
-    label: "Quasi-experimental",
-    body: "The targeted population against comparable non-recipients in the same segment — the MVP stand-in for exposed vs. unexposed. Association only.",
+    name: "Targeted segment vs. rest of platform",
+    label: "Not a control",
+    body: "The targeted population against everyone else on the platform. The two groups differ systematically — different grades, subjects and engagement levels — so this is a reference point, not a matched comparison. Where a campaign targets everyone, no comparison group exists at all and the view reports that rather than inventing one.",
   },
   {
     name: "Cohort progression",
     label: "Durability",
-    body: "Following the send cohort week over week to tell a one-week spike from a sustained shift. Requires sufficient history.",
+    body: "Following the send cohort week over week to tell a one-week spike from a lasting shift. Only weeks clearing their own uncertainty band count as evidence, and a change that held before decaying is reported as having faded rather than as a spike. Requires sufficient history.",
   },
   {
     name: "Exposed vs. unexposed with holdout",
@@ -119,16 +119,24 @@ export function MethodologyModal({ open, onClose }: { open: boolean; onClose: ()
             </h3>
             <ul className="mt-2 text-sm flex flex-col gap-1.5" style={{ color: T.soft, lineHeight: 1.5 }}>
               <li>
-                <b style={{ color: T.ink }}>Seasonal baseline.</b> Prior year, rescaled for seat growth.
-                K-12 usage follows the school calendar, so every change is read against it.
+                <b style={{ color: T.ink }}>Seasonal baseline.</b> Prior year, smoothed over a centred
+                ±{BASELINE_SMOOTH}-day window and rescaled for seat growth. K-12 usage follows the school
+                calendar, so every change is read against it.
               </li>
               <li>
                 <b style={{ color: T.ink }}>Minimum sample.</b> A result renders only past {MIN_N} exposed
                 teachers; smaller cells show an insufficient-data state.
               </li>
               <li>
-                <b style={{ color: T.ink }}>Materiality.</b> Changes under {pct(MATERIALITY)} (adjusted)
-                are treated as no material change.
+                <b style={{ color: T.ink }}>Materiality.</b> A change must clear both a {pctAbs(MATERIALITY)}{" "}
+                floor <i>and</i> its own uncertainty band ({CONFIDENCE_Z} × the standard error of the
+                adjusted estimate). In a quiet window the bar rises on its own, so a small sample cannot
+                clear it by being noisy.
+              </li>
+              <li>
+                <b style={{ color: T.ink }}>Minimum activity.</b> Both comparison windows must average at
+                least {MIN_DAILY_ACTIVE} daily active teachers. Low-volume windows are reported as
+                insufficient rather than compared.
               </li>
               <li>
                 <b style={{ color: T.ink }}>Modelled adoption.</b> The activation funnel and OKR gauges are

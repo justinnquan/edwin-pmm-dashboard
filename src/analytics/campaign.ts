@@ -13,8 +13,8 @@ import type { CampaignDef, Metric, SummableMetric } from "../data/schema";
 import { CELLS } from "../data/segments";
 import { CAMPAIGNS } from "../data/campaigns";
 import { TODAY, addDays, daysBetween, provisioned } from "../data/calendar";
-import { MIN_N, MATERIALITY, METRIC_LABEL } from "./constants";
-import { windowMean } from "./kpis";
+import { MIN_N, MATERIALITY, CONFIDENCE_Z, METRIC_LABEL } from "./constants";
+import { windowMean, adjustedSE } from "./kpis";
 import { campaignImpact, campaignsInWindow, reachedIn } from "./attribution";
 import { pct } from "./format";
 
@@ -99,6 +99,12 @@ export function segmentComparison(
 export interface WeekPoint {
   week: number;
   adjusted: number | null;
+  /** Standard error of this week's adjusted estimate, by the same delta method
+      `campaignImpact` uses. Null when it cannot be estimated. */
+  se: number | null;
+  /** Clears max(MATERIALITY, CONFIDENCE_Z × se) — this week's own bar, not a
+      flat threshold. A quiet week raises its own bar. */
+  material: boolean;
 }
 
 export function cohortProgression(
@@ -121,39 +127,57 @@ export function cohortProgression(
     const post = windowMean(metric, targetIds, end, 7);
     const bPost = windowMean(metric, targetIds, end, 7, true);
     let adjusted: number | null = null;
-    if (pre && post && bPre && bPost) adjusted = post / pre / (bPost / bPre) - 1;
-    out.push({ week: w, adjusted });
+    let se: number | null = null;
+    let material = false;
+    if (pre && post && bPre && bPost) {
+      adjusted = post / pre / (bPost / bPre) - 1;
+      se = adjustedSE(metric, targetIds, end, addDays(launch, -1), 7, adjusted);
+      if (se != null) material = Math.abs(adjusted) >= Math.max(MATERIALITY, CONFIDENCE_Z * se);
+    }
+    out.push({ week: w, adjusted, se, material });
   }
   return out;
 }
 
-export type Sustained = "sustained" | "spike" | "insufficient";
+export type Sustained = "sustained" | "faded" | "spike" | "insufficient";
 
-const median = (a: number[]): number => {
-  if (!a.length) return 0;
-  const s = [...a].sort((x, y) => x - y);
-  const m = Math.floor(s.length / 2);
-  return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
-};
+/* Durability verdict, decided on each week's own uncertainty band rather than a
+   flat threshold.
 
-/* Signed verdict. A real lift decays but keeps its sign, so we check that the
-   most recent weeks still point the same way as the peak and remain material —
-   rather than the old |last| ≥ 0.5·peak rule, which mislabelled every decaying
-   win as a "spike" the longer you observed it, and treated a +→− sign flip as
-   sustained. */
+   Two failure modes this avoids:
+
+   1. The original rule (|last| ≥ 0.5 × peak) labelled every decaying win a
+      "spike", and the longer you observed, the more certain the mislabel.
+   2. Testing weekly values against a flat 5% — as the first revision did —
+      let a campaign with no effect at all read "sustained" purely because its
+      noise happened to keep one sign. A zero-effect campaign whose weekly
+      estimates carry a ±19% standard error must not produce an affirmative
+      durability claim.
+
+   So only weeks that clear their own bar count as evidence, and a lift that
+   held for a stretch before decaying gets its own verdict rather than being
+   collapsed into "spike". */
 export function sustainedVerdict(prog: WeekPoint[]): Sustained {
-  const vals = prog.map((p) => p.adjusted).filter((v): v is number => v != null);
-  if (vals.length < 2) return "insufficient";
+  const pts = prog.filter((p): p is WeekPoint & { adjusted: number } => p.adjusted != null);
+  if (pts.length < 2) return "insufficient";
 
-  const peak = vals.reduce((a, b) => (Math.abs(b) > Math.abs(a) ? b : a), vals[0]);
-  if (Math.abs(peak) < MATERIALITY) return "insufficient";
-  const peakSign = Math.sign(peak);
+  // Weeks that cleared their own uncertainty band. Nothing else is evidence.
+  const signal = pts.filter((p) => p.material);
+  if (!signal.length) return "insufficient";
 
-  const recent = vals.slice(-3); // last three available weeks (or all, if fewer)
-  const sameSign = recent.every((v) => Math.sign(v) === peakSign);
-  const holds = median(recent.map((v) => Math.abs(v))) >= MATERIALITY;
+  const peak = signal.reduce((a, b) => (Math.abs(b.adjusted) > Math.abs(a.adjusted) ? b : a));
+  const sign = Math.sign(peak.adjusted);
 
-  return sameSign && holds ? "sustained" : "spike";
+  // Still holding if at least two of the last three weeks clear their own bar
+  // in the peak's direction.
+  const recent = pts.slice(-3);
+  const holding = recent.filter((p) => p.material && Math.sign(p.adjusted) === sign);
+  if (holding.length >= 2) return "sustained";
+
+  // It cleared its bar for a real run and then stopped: a lift that faded, not
+  // a one-week blip. Three weeks distinguishes the two honestly.
+  const run = signal.filter((p) => Math.sign(p.adjusted) === sign).length;
+  return run >= 3 ? "faded" : "spike";
 }
 
 /* --- Channel roll-up ------------------------------------------------------- */
@@ -256,9 +280,11 @@ export function campaignInterpretation(
   const verdict = sustainedVerdict(cohortProgression(campaign, metric, ids));
   const sustainText =
     verdict === "sustained"
-      ? "The lift has held week over week."
+      ? "The change has held week over week."
+      : verdict === "faded"
+      ? "It held for several weeks before fading back toward the baseline."
       : verdict === "spike"
-      ? "The movement looks like a one-week spike rather than a sustained shift."
+      ? "The movement looks like a one-week spike rather than a lasting shift."
       : "";
   return {
     tone: r.adjusted > 0 ? "positive" : "negative",

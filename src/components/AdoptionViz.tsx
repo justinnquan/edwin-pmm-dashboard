@@ -14,7 +14,7 @@ import {
 } from "recharts";
 import { T, num } from "../theme/tokens";
 import { fmtShort } from "../data/calendar";
-import { pct, int } from "../analytics/format";
+import { pct, pctAbs, int } from "../analytics/format";
 import type { FunnelStage, Gauge as GaugeData, FeatureAdoption } from "../analytics/adoption";
 import type { SeriesPoint } from "../data/schema";
 import { InfoTip, type KpiInfo } from "./InfoTip";
@@ -36,7 +36,7 @@ export function Funnel({ stages }: { stages: FunnelStage[] }) {
                 {s.label}
               </span>
               <span className="text-xs shrink-0" style={{ ...num, color: T.muted }}>
-                {int(s.count)} · {pct(s.shareOfTop)}
+                {int(s.count)} · {pctAbs(s.shareOfTop)}
               </span>
             </div>
             <div
@@ -60,7 +60,7 @@ export function Funnel({ stages }: { stages: FunnelStage[] }) {
                   converts
                 </div>
                 <div className="text-sm font-bold" style={{ ...num, color: T.soft }}>
-                  {pct(s.shareOfPrev)}
+                  {pctAbs(s.shareOfPrev)}
                 </div>
               </>
             )}
@@ -86,7 +86,7 @@ export function Gauge({ gauge, info }: { gauge: GaugeData; info?: KpiInfo }) {
           {info && <InfoTip label={gauge.label} info={info} />}
         </span>
         <span className="text-xs shrink-0" style={{ ...num, color: T.muted }}>
-          target {pct(gauge.target)}
+          target {pctAbs(gauge.target)}
         </span>
       </div>
       <div className="mt-2 flex items-baseline gap-2">
@@ -106,7 +106,7 @@ export function Gauge({ gauge, info }: { gauge: GaugeData; info?: KpiInfo }) {
         <div
           className="absolute"
           style={{ left: `${Math.min(100, gauge.target * 100)}%`, top: -3, bottom: -3, width: 2, background: T.navy }}
-          title={`Target ${pct(gauge.target)}`}
+          title={`Target ${pctAbs(gauge.target)}`}
         />
       </div>
       <div className="mt-2 text-xs" style={{ color: T.muted, lineHeight: 1.5 }}>

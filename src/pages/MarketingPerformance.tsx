@@ -42,6 +42,7 @@ interface Row {
 
 const sustainChip: Record<Sustained, { tone: "good" | "warn" | "muted"; word: string }> = {
   sustained: { tone: "good", word: "Sustained" },
+  faded: { tone: "muted", word: "Held, then faded" },
   spike: { tone: "warn", word: "One-week spike" },
   insufficient: { tone: "muted", word: "—" },
 };
