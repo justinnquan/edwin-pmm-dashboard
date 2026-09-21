@@ -1,15 +1,16 @@
 /* ===========================================================================
    /analytics — CAMPAIGN ATTRIBUTION
    Reach de-duplication, campaigns-in-window, and the before/after impact
-   calculation — seasonally adjusted and N-gated.
+   calculation — seasonally adjusted, N- and volume-gated, and gated on the
+   change's own uncertainty band rather than a fixed threshold.
 =========================================================================== */
 import type { CampaignDef, CampaignImpact, SummableMetric } from "../data/schema";
 import { CELLS } from "../data/segments";
 import { CAMPAIGNS } from "../data/campaigns";
 import { PANEL } from "../data/generate";
 import { TODAY, addDays, daysBetween } from "../data/calendar";
-import { MIN_N, MATERIALITY } from "./constants";
-import { windowMean } from "./kpis";
+import { MIN_N, MIN_DAILY_ACTIVE, MATERIALITY, CONFIDENCE_Z } from "./constants";
+import { windowMean, windowStats, adjustedSE } from "./kpis";
 
 // Distinct teachers exposed, within the current segment filter.
 export function reachedIn(campaignIds: string[], ids: number[]): number {
@@ -36,7 +37,9 @@ export function campaignsInWindow(days: number): CampaignDef[] {
   });
 }
 
-/* Before vs. after for one campaign, seasonally adjusted and N-gated. */
+/* Before vs. after for one campaign: seasonally adjusted, N-gated, volume-gated,
+   and called material only when it clears both the 5% floor and its own ~95%
+   uncertainty band. */
 export function campaignImpact(
   campaign: CampaignDef,
   metric: SummableMetric,
@@ -53,20 +56,46 @@ export function campaignImpact(
     return { state: "insufficient-window", n, elapsed, needed: windowDays };
   if (n < MIN_N) return { state: "insufficient-n", n };
 
-  const post = windowMean(metric, targetIds, addDays(launch, windowDays), windowDays);
-  const pre = windowMean(metric, targetIds, addDays(launch, -1), windowDays);
-  const bPost = windowMean(metric, targetIds, addDays(launch, windowDays), windowDays, true);
-  const bPre = windowMean(metric, targetIds, addDays(launch, -1), windowDays, true);
+  // Activity-volume gate: low daily volume makes the comparison unstable even
+  // when the exposed teacher count passes MIN_N.
+  const activePre = windowMean("dailyActive", targetIds, addDays(launch, -1), windowDays);
+  const activePost = windowMean("dailyActive", targetIds, addDays(launch, windowDays), windowDays);
+  if (activePre == null || activePost == null) return { state: "no-baseline", n };
+  const active = Math.min(activePre, activePost);
+  if (active < MIN_DAILY_ACTIVE) return { state: "insufficient-volume", n, active };
+
+  const sPost = windowStats(metric, targetIds, addDays(launch, windowDays), windowDays);
+  const sPre = windowStats(metric, targetIds, addDays(launch, -1), windowDays);
+  const sBPost = windowStats(metric, targetIds, addDays(launch, windowDays), windowDays, true);
+  const sBPre = windowStats(metric, targetIds, addDays(launch, -1), windowDays, true);
+  if (!sPost || !sPre || !sBPost || !sBPre) return { state: "no-baseline", n };
+  const post = sPost.mean;
+  const pre = sPre.mean;
+  const bPost = sBPost.mean;
+  const bPre = sBPre.mean;
   if (!post || !pre || !bPost || !bPre) return { state: "no-baseline", n };
 
   const adjusted = post / pre / (bPost / bPre) - 1;
+  const se = adjustedSE(
+    metric,
+    targetIds,
+    addDays(launch, windowDays),
+    addDays(launch, -1),
+    windowDays,
+    adjusted
+  );
+  if (se == null) return { state: "no-baseline", n };
+  const threshold = Math.max(MATERIALITY, CONFIDENCE_Z * se);
+
   return {
     state: "ok",
     n,
     adjusted,
     raw: post / pre - 1,
     expected: bPost / bPre - 1,
-    material: Math.abs(adjusted) >= MATERIALITY,
+    material: Math.abs(adjusted) >= threshold,
+    se,
+    threshold,
     pre,
     post,
     bPre,

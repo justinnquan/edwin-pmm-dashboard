@@ -32,6 +32,8 @@ export function ImpactValue({ r }: { r: CampaignImpact }): ReactNode {
       );
     case "insufficient-n":
       return <span style={{ color: T.muted }}>Below {MIN_N} exposed</span>;
+    case "insufficient-volume":
+      return <span style={{ color: T.muted }}>Volume too low</span>;
     case "no-baseline":
       return <span style={{ color: T.muted }}>No baseline</span>;
     case "ok":
@@ -69,7 +71,10 @@ export function ProductImpactCard({
             className="mt-2 text-2xl font-extrabold"
             style={{ ...num, color: r.material ? (r.adjusted > 0 ? T.good : T.warn) : T.soft }}
           >
-            {pct(r.adjusted)}
+            {pct(r.adjusted)}{" "}
+            <span className="text-sm font-semibold" style={{ color: T.muted }}>
+              ± {(r.se * 100).toFixed(1)}%
+            </span>
           </div>
           <div className="mt-1 text-xs" style={{ ...num, color: T.muted }}>
             Raw {pct(r.raw)} · Expected {pct(r.expected)}
@@ -83,6 +88,8 @@ export function ProductImpactCard({
             } needed for a ${windowDays}-day window.`}
           {r.state === "insufficient-n" &&
             `${r.n} exposed teachers, below the ${MIN_N} minimum.`}
+          {r.state === "insufficient-volume" &&
+            "Activity volume too low in this window for a reliable comparison."}
           {r.state === "out-of-segment" && "No exposed teachers in the current segment."}
           {r.state === "no-baseline" && "No prior-year baseline for this window."}
         </div>

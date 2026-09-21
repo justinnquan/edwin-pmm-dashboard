@@ -8,8 +8,8 @@ import type { Cell } from "../data/schema";
 import { CELLS, PROVINCES, GRADES, SUBJECTS } from "../data/segments";
 import { TODAY, provisioned } from "../data/calendar";
 import { MIN_N } from "./constants";
-import { windowMean, adjustedChange } from "./kpis";
-import { campaignsInWindow, reachedIn, campaignImpact } from "./attribution";
+import { windowMean, seatWeightedRate } from "./kpis";
+import { campaignsInWindow, campaignImpact } from "./attribution";
 import { MONTHLY_TARGET } from "./adoption";
 
 export type Dimension = "province" | "grade" | "subject";
@@ -50,13 +50,12 @@ function rowFor(ids: number[], key: string, windowDays: number): SegmentRow {
   const activeRate = wau != null && seats > 0 ? wau / seats : null;
   const ahaNow = windowMean("ahaUsers", ids, TODAY, 7);
   const adoptionRate = ahaNow != null && wau ? ahaNow / wau : null;
-  const retRaw = windowMean("retentionW4", ids, TODAY, 7);
-  const retention = retRaw != null ? retRaw / ids.length : null;
+  const retention = seatWeightedRate("retentionW4", ids, TODAY, 7);
 
   let wsum = 0;
   let w = 0;
   for (const c of campaignsInWindow(30)) {
-    const r = campaignImpact(c, "resourceOpens", ids, windowDays);
+    const r = campaignImpact(c, c.objectiveMetric, ids, windowDays);
     if (r.state === "ok") {
       wsum += r.adjusted * r.n;
       w += r.n;

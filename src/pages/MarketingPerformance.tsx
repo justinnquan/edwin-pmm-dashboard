@@ -75,7 +75,7 @@ function Th({
 
 export default function MarketingPerformance() {
   const navigate = useNavigate();
-  const { province, grade, subject, win } = useFilters();
+  const { province, grade, subject, win, range } = useFilters();
   const ids = useMemo(() => cellFilter({ province, grade, subject }), [province, grade, subject]);
   const [sort, setSort] = useState<{ key: SortKey; dir: 1 | -1 }>({ key: "assoc", dir: -1 });
 
@@ -126,7 +126,7 @@ export default function MarketingPerformance() {
     });
   }, [rows, sort]);
 
-  const channels = useMemo(() => channelRollup(ids, win), [ids, win]);
+  const channels = useMemo(() => channelRollup(ids, win, range), [ids, win, range]);
 
   // Comparison state
   const [aName, setAName] = useState(CAMPAIGNS[0].name);
@@ -207,7 +207,7 @@ export default function MarketingPerformance() {
                       {(row.ctr * 100).toFixed(1)}%
                     </td>
                     <td className="py-3 px-3 text-sm text-right" style={num}>
-                      {row.ctor == null ? "—" : (row.ctor * 100).toFixed(1) + "%"}
+                      {row.ctor == null ? "N/A" : (row.ctor * 100).toFixed(1) + "%"}
                     </td>
                     <td className="py-3 px-3 text-sm text-right" style={num}>
                       <ImpactValue r={row.r} />

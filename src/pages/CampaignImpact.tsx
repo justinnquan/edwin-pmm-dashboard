@@ -29,7 +29,7 @@ import {
   campaignCTR,
   campaignCTOR,
   primaryMetric,
-  matchedBaseline,
+  segmentComparison,
   cohortProgression,
   sustainedVerdict,
   campaignInterpretation,
@@ -97,7 +97,7 @@ function Detail({ campaign }: { campaign: CampaignDef }) {
 
   const ctor = campaignCTOR(campaign);
   const impact = campaignImpact(campaign, metric, ids, localWin);
-  const mb = matchedBaseline(campaign, metric, ids, localWin);
+  const sc = segmentComparison(campaign, metric, ids, localWin);
   const prog = cohortProgression(campaign, metric, ids);
   const verdict = sustainedVerdict(prog);
   const interp = campaignInterpretation(campaign, ids, localWin);
@@ -136,7 +136,7 @@ function Detail({ campaign }: { campaign: CampaignDef }) {
             { k: "Opens", v: int(campaignOpens(campaign)) },
             { k: "Clicks", v: int(campaignClicks(campaign)) },
             { k: "CTR", v: (campaignCTR(campaign) * 100).toFixed(1) + "%" },
-            { k: "CTOR", v: ctor == null ? "—" : (ctor * 100).toFixed(1) + "%" },
+            { k: "CTOR", v: ctor == null ? "N/A" : (ctor * 100).toFixed(1) + "%" },
           ].map((s) => (
             <div key={s.k} className="rounded p-3" style={{ background: T.bg, border: `1px solid ${T.border}` }}>
               <div className="text-xs font-bold uppercase" style={{ color: T.muted, letterSpacing: "0.05em" }}>
@@ -238,12 +238,23 @@ function Detail({ campaign }: { campaign: CampaignDef }) {
                   }}
                 >
                   {pct(adjust ? impact.adjusted : impact.raw)}
+                  {adjust && (
+                    <span className="text-base font-semibold" style={{ color: T.muted }}>
+                      {" "}
+                      ± {(impact.se * 100).toFixed(1)}%
+                    </span>
+                  )}
                 </span>
               </div>
               <p className="mt-2 text-xs" style={{ color: T.muted, lineHeight: 1.6 }}>
                 Raw {pct(impact.raw)}. Prior-year baseline moved {pct(impact.expected)} over the same
-                calendar window; the adjusted figure divides the two. Describes an association after
-                exposure, not proven causation.
+                calendar window; the adjusted figure divides the two. Called material only when it
+                clears both the 5% floor and its own uncertainty band (here ±
+                {(impact.threshold * 100).toFixed(1)}%), so it is{" "}
+                <b style={{ color: impact.material ? (impact.adjusted > 0 ? T.good : T.warn) : T.soft }}>
+                  {impact.material ? "material" : "not material"}
+                </b>
+                . Association after exposure, not proven causation.
               </p>
             </>
           ) : (
@@ -251,42 +262,58 @@ function Detail({ campaign }: { campaign: CampaignDef }) {
           )}
         </Card>
 
-        {/* Send-cohort vs matched baseline */}
+        {/* Targeted segment vs. rest of platform */}
         <Card className="p-5">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-2">
             <h2 className="text-sm font-extrabold uppercase" style={{ color: T.navy, letterSpacing: "0.07em" }}>
-              Send-cohort vs. matched baseline
+              Targeted segment vs. rest of platform
             </h2>
-            <Chip tone="warn">Association only</Chip>
+            <Chip tone="warn">Not a control</Chip>
           </div>
-          {mb.state === "ok" ? (
+          <p className="mt-1 text-xs" style={{ color: T.muted, lineHeight: 1.5 }}>
+            Not a matched control. The comparison group differs systematically from the targeted group.
+          </p>
+          {sc.state === "ok" ? (
             <>
               <div className="mt-4 flex items-center justify-between gap-3">
-                <BeforeAfterCol label="Send cohort" value={pct(mb.sendAdjusted)} tone={mb.sendAdjusted >= 0 ? T.good : T.warn} />
+                <BeforeAfterCol label="Targeted" value={pct(sc.sendAdjusted)} tone={sc.sendAdjusted >= 0 ? T.good : T.warn} />
                 <div className="text-2xl" style={{ color: T.muted }}>
                   vs
                 </div>
-                <BeforeAfterCol label="Matched baseline" value={pct(mb.baseAdjusted)} tone={T.soft} />
+                <BeforeAfterCol label="Rest of platform" value={pct(sc.restAdjusted)} tone={T.soft} />
               </div>
               <div className="mt-4 pt-4 flex items-baseline justify-between" style={{ borderTop: `1px solid ${T.border}` }}>
                 <span className="text-sm" style={{ color: T.soft }}>
-                  Difference (cohort − baseline)
+                  Difference (targeted − rest)
                 </span>
                 <span
                   className="text-3xl font-extrabold"
-                  style={{ ...num, color: mb.lift >= 0 ? T.good : T.warn }}
+                  style={{ ...num, color: sc.lift >= 0 ? T.good : T.warn }}
                 >
-                  {pct(mb.lift)}
+                  {pct(sc.lift)}
                 </span>
               </div>
               <p className="mt-2 text-xs" style={{ color: T.muted, lineHeight: 1.6 }}>
-                {int(mb.n)} exposed teachers vs. comparable non-targeted teachers in this segment.
-                A quasi-experimental stand-in for exposed/unexposed; a randomized holdout would be
-                stronger.
+                {int(sc.n)} exposed teachers vs. non-targeted teachers on the platform. Different
+                populations with different seasonality — directional context, not a controlled effect.
               </p>
             </>
+          ) : sc.state === "no-holdout" ? (
+            <div
+              className="mt-4 rounded p-4"
+              style={{ background: "#FFF6F2", border: `1px solid ${T.warn}` }}
+            >
+              <div className="text-sm font-extrabold" style={{ color: T.warn }}>
+                No comparison group exists
+              </div>
+              <p className="mt-1 text-sm" style={{ color: T.soft, lineHeight: 1.6 }}>
+                This campaign targeted every teacher, so no comparison group exists. Measuring true
+                campaign effect requires reserving a randomised holdout before send — a change to
+                campaign operations, not analysis.
+              </p>
+            </div>
           ) : (
-            <MatchedGate state={mb} windowDays={localWin} />
+            <SegmentGate state={sc} windowDays={localWin} />
           )}
         </Card>
       </section>
@@ -416,29 +443,29 @@ function GateNote({
         } needed for a ${windowDays}-day window.`}
       {state.state === "insufficient-n" &&
         `Insufficient data — ${state.n} exposed teachers, below the ${MIN_N} minimum.`}
+      {state.state === "insufficient-volume" &&
+        "Insufficient data — activity volume too low in this window for a reliable comparison."}
       {state.state === "out-of-segment" && "No exposed teachers in the current segment."}
       {state.state === "no-baseline" && "No prior-year baseline available for this window."}
     </div>
   );
 }
 
-function MatchedGate({
+function SegmentGate({
   state,
   windowDays,
 }: {
-  state: Exclude<ReturnType<typeof matchedBaseline>, { state: "ok" }>;
+  state: Exclude<ReturnType<typeof segmentComparison>, { state: "ok" | "no-holdout" }>;
   windowDays: number;
 }) {
   return (
     <div className="mt-4 text-sm font-semibold" style={{ color: T.muted, lineHeight: 1.5 }}>
-      {state.state === "no-holdout" &&
-        "This campaign targeted every teacher, so there is no comparable unexposed group. A true comparison needs a randomized holdout designed in before send."}
       {state.state === "insufficient-window" &&
         `Insufficient data — ${state.needed - state.elapsed} more day${
           state.needed - state.elapsed === 1 ? "" : "s"
         } needed for a ${windowDays}-day window.`}
       {state.state === "insufficient-n" &&
-        `Insufficient data — the send cohort or matched baseline is below the ${MIN_N}-teacher minimum.`}
+        `Insufficient data — the targeted segment or the rest of the platform is below the ${MIN_N}-teacher minimum.`}
       {state.state === "out-of-segment" && "No exposed teachers in the current segment."}
       {state.state === "no-baseline" && "No prior-year baseline available for this window."}
     </div>

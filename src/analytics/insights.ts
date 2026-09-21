@@ -6,7 +6,7 @@
 import type { Metric } from "../data/schema";
 import { PROVINCES, GRADES, CELLS } from "../data/segments";
 import { TODAY, addDays, fmtShort, provisioned } from "../data/calendar";
-import { MIN_N, MATERIALITY, METRIC_LABEL } from "./constants";
+import { MIN_N, METRIC_LABEL } from "./constants";
 import { adjustedChange } from "./kpis";
 import { campaignImpact, campaignsInWindow } from "./attribution";
 import { pct } from "./format";
@@ -33,7 +33,7 @@ export function buildInsights(
   // R1 — seasonality guard on the headline metric.
   const wow = adjustedChange("wau", ids, TODAY, 7);
   if (wow) {
-    if (Math.abs(wow.raw) >= 0.1 && Math.abs(wow.adjusted) < MATERIALITY) {
+    if (Math.abs(wow.raw) >= 0.1 && !wow.material) {
       out.push({
         tone: "watch",
         text: `Weekly active teachers moved ${pct(wow.raw)} week over week, but ${pct(
@@ -44,7 +44,7 @@ export function buildInsights(
           pct(wow.expected) +
           " over the same calendar window.",
       });
-    } else if (Math.abs(wow.adjusted) >= MATERIALITY) {
+    } else if (wow.material) {
       out.push({
         tone: wow.adjusted > 0 ? "positive" : "negative",
         text: `Weekly active teachers are ${pct(wow.adjusted)} against the seasonal baseline.`,
@@ -58,7 +58,7 @@ export function buildInsights(
   for (const c of campaignsInWindow(30)) {
     for (const metric of metrics) {
       const r = campaignImpact(c, metric, ids, windowDays);
-      if (r.state === "insufficient-n") {
+      if (r.state === "insufficient-n" || r.state === "insufficient-volume") {
         suppressed++;
         continue;
       }
@@ -88,7 +88,7 @@ export function buildInsights(
         suppressed++;
         continue;
       }
-      if (ch.adjusted <= -MATERIALITY) {
+      if (ch.material && ch.adjusted < 0) {
         out.push({
           tone: "negative",
           text: `Class creation in ${p.k} ${g.k} is ${pct(

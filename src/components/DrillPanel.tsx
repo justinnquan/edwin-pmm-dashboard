@@ -6,6 +6,7 @@ import { fmtShort } from "../data/calendar";
 import { MIN_N, METRIC_LABEL } from "../analytics/constants";
 import { pct, int } from "../analytics/format";
 import { campaignImpact } from "../analytics/attribution";
+import { campaignCTOR } from "../analytics/campaign";
 import type { CampaignDef, SummableMetric } from "../data/schema";
 import { Card, Chip } from "./primitives";
 
@@ -20,12 +21,10 @@ export function ImpactRow({
   windowDays: number;
   onPick: (id: string) => void;
 }) {
-  const metric: SummableMetric = campaign.effects.assignmentsCreated
-    ? "assignmentsCreated"
-    : "resourceOpens";
+  const metric: SummableMetric = campaign.objectiveMetric;
   const r = campaignImpact(campaign, metric, ids, windowDays);
   const ctr = campaign.clickRate;
-  const ctor = campaign.openRate > 0 ? campaign.clickRate / campaign.openRate : null;
+  const ctor = campaignCTOR(campaign);
 
   let result: React.ReactNode;
   if (r.state === "out-of-segment")
@@ -38,6 +37,8 @@ export function ImpactRow({
     );
   else if (r.state === "insufficient-n")
     result = <span style={{ color: T.muted }}>Below {MIN_N} exposed</span>;
+  else if (r.state === "insufficient-volume")
+    result = <span style={{ color: T.muted }}>Volume too low</span>;
   else if (r.state === "no-baseline")
     result = <span style={{ color: T.muted }}>No baseline</span>;
   else if (!r.material) result = <span style={{ color: T.soft }}>No material change</span>;
@@ -64,7 +65,7 @@ export function ImpactRow({
         {(ctr * 100).toFixed(1)}%
       </td>
       <td className="py-3 px-3 text-sm text-right" style={num}>
-        {ctor ? (ctor * 100).toFixed(1) + "%" : "—"}
+        {ctor == null ? "N/A" : (ctor * 100).toFixed(1) + "%"}
       </td>
       <td className="py-3 pl-3 text-sm text-right" style={num}>
         {result}
@@ -134,7 +135,10 @@ export function DrillPanel({
                       color: r.material ? (r.adjusted > 0 ? T.good : T.warn) : T.soft,
                     }}
                   >
-                    {pct(r.adjusted)}
+                    {pct(r.adjusted)}{" "}
+                    <span className="text-sm font-semibold" style={{ color: T.muted }}>
+                      ± {(r.se * 100).toFixed(1)}%
+                    </span>
                   </div>
                   <div className="mt-1 text-xs" style={{ ...num, color: T.muted }}>
                     Raw {pct(r.raw)} · Expected {pct(r.expected)}
@@ -151,6 +155,8 @@ export function DrillPanel({
                     } needed for a ${windowDays}-day window.`}
                   {r.state === "insufficient-n" &&
                     `Insufficient data — ${r.n} exposed teachers, below the ${MIN_N} minimum.`}
+                  {r.state === "insufficient-volume" &&
+                    "Insufficient data — activity volume too low in this window for a reliable comparison."}
                   {r.state === "out-of-segment" && "No exposed teachers in the current segment."}
                   {r.state === "no-baseline" && "No prior-year baseline available for this window."}
                 </div>

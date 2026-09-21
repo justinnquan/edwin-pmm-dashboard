@@ -11,7 +11,7 @@ import { CELLS } from "../data/segments";
 import { TODAY, addDays, provisioned } from "../data/calendar";
 import { METRIC_LABEL } from "../analytics/constants";
 import { pct, int } from "../analytics/format";
-import { cellFilter, seriesFor, windowMean, adjustedChange } from "../analytics/kpis";
+import { cellFilter, seriesFor, windowMean, adjustedChange, seatWeightedRate } from "../analytics/kpis";
 import { campaignsInWindow, reachedIn, campaignImpact } from "../analytics/attribution";
 import { buildInsights } from "../analytics/insights";
 import { useFilters } from "../state/filterStore";
@@ -46,8 +46,7 @@ export default function ExecutiveOverview() {
     const ahaNow = windowMean("ahaUsers", ids, TODAY, 7);
     const ahaRate = ahaNow != null && wauNow ? ahaNow / wauNow : null;
     const ahaCh = adjustedChange("ahaUsers", ids, TODAY, 14);
-    const retRaw = windowMean("retentionW4", ids, TODAY, 7);
-    const ret = retRaw != null ? retRaw / ids.length : null;
+    const ret = seatWeightedRate("retentionW4", ids, TODAY, 7);
     const resCh = adjustedChange("resourceOpens", ids, TODAY, 14);
 
     const recent = campaignsInWindow(30);
@@ -60,7 +59,7 @@ export default function ExecutiveOverview() {
     let wsum = 0,
       w = 0;
     for (const c of recent) {
-      const r = campaignImpact(c, "resourceOpens", ids, win);
+      const r = campaignImpact(c, c.objectiveMetric, ids, win);
       if (r.state === "ok") {
         wsum += r.adjusted * r.n;
         w += r.n;
@@ -146,7 +145,7 @@ export default function ExecutiveOverview() {
           note={
             model.assoc == null
               ? "No campaign has a complete attribution window yet"
-              : "Exposure-weighted resource engagement vs. baseline"
+              : "Exposure-weighted change on each campaign's objective vs. baseline"
           }
         />
       </section>

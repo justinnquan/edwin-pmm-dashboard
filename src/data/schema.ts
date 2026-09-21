@@ -43,6 +43,11 @@ export interface CampaignDef {
   sends: number;
   openRate: number;
   clickRate: number;
+  /** PMM-authored objective declared before send — the metric this campaign set
+      out to move. Survives the real-data swap (unlike `effects`). */
+  objectiveMetric: Metric;
+  /** Generator ground truth. NEVER read above /data — it will not exist in real
+      data. The analytics layer must recover effect size from the data alone. */
   effects: Partial<Record<Metric, number>>;
   halfLife: number;
 }
@@ -82,6 +87,7 @@ export type CampaignImpact =
   | { state: "out-of-segment"; n: number }
   | { state: "insufficient-window"; n: number; elapsed: number; needed: number }
   | { state: "insufficient-n"; n: number }
+  | { state: "insufficient-volume"; n: number; active: number }
   | { state: "no-baseline"; n: number }
   | {
       state: "ok";
@@ -90,6 +96,8 @@ export type CampaignImpact =
       raw: number;
       expected: number;
       material: boolean;
+      se: number; // standard error of the adjusted change (delta method)
+      threshold: number; // the bar it had to clear: max(MATERIALITY, Z × se)
       pre: number;
       post: number;
       bPre: number;
