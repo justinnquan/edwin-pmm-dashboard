@@ -35,9 +35,13 @@ It runs on seeded synthetic data behind a swappable data layer. Figures are illu
 git clone https://github.com/justinnquan/edwin-pmm-dashboard.git
 cd edwin-pmm-dashboard
 npm install
-npm run dev        # http://localhost:5173
-npm run typecheck  # tsc --noEmit
-npm run build      # production build to dist/
+npm run dev              # http://localhost:5173
+npm run typecheck        # tsc --noEmit
+npm run build            # layer check + typecheck + production build
+npm run null-test        # attribution false-positive regression gate
+npm run check:layers     # fails if the generator is reachable above /data
+npm run export-sample    # write synthetic data as CSV, re-import, round-trip test
+npm run gen:requirements # regenerate docs/DATA-REQUIREMENTS.md from the CSV schema
 ```
 
 ### Documentation in the repo
@@ -277,7 +281,7 @@ The statistical fixes changed the math but not the explanation. `MethodologyModa
 | Full build (Phases A-G) | Justin built the full 7-page app in Claude Code, separating the single-file prototype into the layered architecture | Complete. All 7 pages, clean TypeScript, clean build, deployed to Vercel. |
 | Code review | Cloned repo, ran typecheck and build, grepped for ground-truth leaks and ungated arithmetic, ran numerical harnesses against the attribution math, measured false-positive rate with null-campaign test | Complete. |
 | Statistical fixes | 8 tasks addressing the P0/P1/P2 findings, plus a null-test regression script | Complete. Commit `36009e5`. False-positive rate 22% → 0.0% at the 7-day window. |
-| Real-data readiness | Build the data-source seam the PRD claims already exists, an in-app CSV upload with schema validation, and the BI requirements spec | **In progress. This is the current step.** |
+| Real-data readiness | Data-source seam, in-app CSV import with schema validation, and the BI requirements spec | Complete. The dashboard runs on an imported CSV end to end. |
 
 ### Key design decisions and their rationale
 

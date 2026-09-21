@@ -10,7 +10,8 @@
     "null-test": "tsx scripts/null-test.ts",
     "preview": "vite preview",
     "check:layers": "tsx scripts/check-layers.ts",
-    "export-sample": "tsx scripts/export-sample.ts"
+    "export-sample": "tsx scripts/export-sample.ts",
+    "gen:requirements": "tsx scripts/gen-requirements.ts"
   },
   "dependencies": {
     "@types/papaparse": "^5.5.2",
