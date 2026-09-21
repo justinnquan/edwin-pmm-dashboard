@@ -5,7 +5,7 @@
    never a leadership headline).
 =========================================================================== */
 import { useMemo, useState } from "react";
-import { CELLS } from "../data/segments";
+import { src } from "../data/source";
 import { MIN_N } from "../analytics/constants";
 import { pct, pctAbs, int } from "../analytics/format";
 import { cellFilter } from "../analytics/kpis";
@@ -73,7 +73,7 @@ export default function Segments() {
   const maxOpp = opportunities.length ? opportunities[0].size : 1;
 
   // Does any board/account dimension exist in the data? (It does not — surfaced honestly.)
-  const hasBoardData = CELLS.some((c) => "board" in c);
+  const hasBoardData = src().cells.some((c) => "board" in c);
 
   return (
     <div className="flex flex-col gap-6">

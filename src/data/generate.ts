@@ -1,24 +1,15 @@
 /* ===========================================================================
    /data — DAILY FACT TABLE + USER PANEL
    Generates the (date × cell) fact table and a lightweight user panel used
-   only for exposure de-duplication. This is the single swap point: replace
-   DATA and PANEL with a real adapter honouring the schema and nothing above
-   changes.
+   only for exposure de-duplication. GROUND TRUTH — reached only through
+   createSyntheticSource() in ./synthetic.ts, never imported above /data.
 =========================================================================== */
 import type { DailyRow } from "./schema";
 import { CELLS } from "./segments";
 import { CAMPAIGNS, campaignMultiplier } from "./campaigns";
-import {
-  START,
-  TODAY,
-  addDays,
-  daysBetween,
-  iso,
-  mulberry32,
-  seasonalRate,
-  provisioned,
-  DOW,
-} from "./calendar";
+import { compileTarget } from "./synthetic";
+import { START, TODAY, mulberry32, seasonalRate, provisioned, DOW } from "./calendar";
+import { addDays, daysBetween, iso } from "../lib/dates";
 
 export interface GeneratedData {
   rows: DailyRow[];
@@ -108,7 +99,8 @@ export function buildPanel(): Panel {
   for (const c of CAMPAIGNS) {
     const bits = new Uint8Array(n);
     const eligible: number[] = [];
-    for (let i = 0; i < n; i++) if (c.target(CELLS[cellOf[i]])) eligible.push(i);
+    const target = compileTarget(c.targetSpec);
+    for (let i = 0; i < n; i++) if (target(CELLS[cellOf[i]])) eligible.push(i);
     const coverage = Math.min(1, c.sends / Math.max(1, eligible.length));
     for (const i of eligible) if (rng() < coverage) bits[i] = 1;
     exposure[c.id] = bits;
@@ -116,5 +108,8 @@ export function buildPanel(): Panel {
   return { n, cellOf, exposure };
 }
 
-export const DATA = generate();
-export const PANEL = buildPanel();
+/* DATA and PANEL used to be exported here as module-level constants, computed
+   eagerly at import time, and imported directly by the analytics layer. That
+   made the "swap point" unswappable: there was no interface to replace, only
+   two constants to delete. They are now built inside createSyntheticSource()
+   in ./synthetic.ts and reached through src() in ./source.ts. */

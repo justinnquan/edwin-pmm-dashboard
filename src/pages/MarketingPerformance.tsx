@@ -4,9 +4,9 @@
 =========================================================================== */
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import type { CampaignDef, CampaignImpact, Metric } from "../data/schema";
-import { CAMPAIGNS } from "../data/campaigns";
-import { fmtShort } from "../data/calendar";
+import type { PublicCampaign, CampaignImpact, Metric } from "../data/schema";
+import { src } from "../data/source";
+import { fmtShort } from "../lib/dates";
 import { pct, int } from "../analytics/format";
 import { cellFilter } from "../analytics/kpis";
 import { campaignImpact } from "../analytics/attribution";
@@ -29,7 +29,7 @@ import { ImpactValue, ProductImpactGrid } from "../components/ProductImpact";
 type SortKey = "name" | "channel" | "launch" | "sends" | "ctr" | "ctor" | "assoc";
 
 interface Row {
-  c: CampaignDef;
+  c: PublicCampaign;
   opens: number;
   clicks: number;
   ctr: number;
@@ -81,7 +81,7 @@ export default function MarketingPerformance() {
   const [sort, setSort] = useState<{ key: SortKey; dir: 1 | -1 }>({ key: "assoc", dir: -1 });
 
   const rows = useMemo<Row[]>(() => {
-    return CAMPAIGNS.map((c) => {
+    return src().campaigns.map((c) => {
       const metric = primaryMetric(c);
       const r = campaignImpact(c, metric, ids, win);
       const sustained = sustainedVerdict(cohortProgression(c, metric, ids));
@@ -130,10 +130,11 @@ export default function MarketingPerformance() {
   const channels = useMemo(() => channelRollup(ids, win, range), [ids, win, range]);
 
   // Comparison state
-  const [aName, setAName] = useState(CAMPAIGNS[0].name);
-  const [bName, setBName] = useState(CAMPAIGNS[3].name);
-  const campA = CAMPAIGNS.find((c) => c.name === aName) ?? CAMPAIGNS[0];
-  const campB = CAMPAIGNS.find((c) => c.name === bName) ?? CAMPAIGNS[1];
+  const all = src().campaigns;
+  const [aName, setAName] = useState(all[0].name);
+  const [bName, setBName] = useState(all[Math.min(3, all.length - 1)].name);
+  const campA = all.find((c) => c.name === aName) ?? all[0];
+  const campB = all.find((c) => c.name === bName) ?? all[Math.min(1, all.length - 1)];
 
   return (
     <div className="flex flex-col gap-6">
@@ -311,7 +312,7 @@ export default function MarketingPerformance() {
               <Select
                 label="Campaign"
                 value={col.name}
-                options={CAMPAIGNS.map((c) => c.name)}
+                options={all.map((c) => c.name)}
                 onChange={col.set}
               />
               <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-xs" style={{ color: T.muted }}>

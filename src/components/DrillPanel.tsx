@@ -2,12 +2,12 @@
    /components — CAMPAIGN DRILL (impact row + detail panel)
 =========================================================================== */
 import { T, num } from "../theme/tokens";
-import { fmtShort } from "../data/calendar";
+import { fmtShort } from "../lib/dates";
 import { MIN_N, METRIC_LABEL } from "../analytics/constants";
 import { pct, int } from "../analytics/format";
 import { campaignImpact } from "../analytics/attribution";
 import { campaignCTOR } from "../analytics/campaign";
-import type { CampaignDef, SummableMetric } from "../data/schema";
+import type { PublicCampaign, SummableMetric } from "../data/schema";
 import { Card, Chip } from "./primitives";
 
 export function ImpactRow({
@@ -16,7 +16,7 @@ export function ImpactRow({
   windowDays,
   onPick,
 }: {
-  campaign: CampaignDef;
+  campaign: PublicCampaign;
   ids: number[];
   windowDays: number;
   onPick: (id: string) => void;
@@ -80,7 +80,7 @@ export function DrillPanel({
   windowDays,
   onClose,
 }: {
-  campaign: CampaignDef | null;
+  campaign: PublicCampaign | null;
   ids: number[];
   windowDays: number;
   onClose: () => void;

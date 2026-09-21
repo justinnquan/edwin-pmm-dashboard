@@ -16,9 +16,9 @@ import {
   CartesianGrid,
   ResponsiveContainer,
 } from "recharts";
-import type { CampaignDef, Metric } from "../data/schema";
-import { CAMPAIGNS } from "../data/campaigns";
-import { fmtShort } from "../data/calendar";
+import type { PublicCampaign, Metric } from "../data/schema";
+import { src } from "../data/source";
+import { fmtShort } from "../lib/dates";
 import { MIN_N, MATERIALITY, METRIC_LABEL } from "../analytics/constants";
 import { pct, pctAbs, int } from "../analytics/format";
 import { cellFilter } from "../analytics/kpis";
@@ -49,7 +49,7 @@ export function CampaignPicker() {
         Pick a campaign to open its impact detail.
       </p>
       <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fit,minmax(280px,1fr))" }}>
-        {CAMPAIGNS.map((c) => (
+        {src().campaigns.map((c) => (
           <Link key={c.id} to={`/campaign/${c.id}`} style={{ textDecoration: "none" }}>
             <Card className="p-4" style={{ height: "100%" }}>
               <Chip tone="blue">{c.type}</Chip>
@@ -70,7 +70,7 @@ export function CampaignPicker() {
 /* ---- Detail --------------------------------------------------------------- */
 export default function CampaignImpact() {
   const { id } = useParams();
-  const campaign = CAMPAIGNS.find((c) => c.id === id);
+  const campaign = src().campaigns.find((c) => c.id === id);
   if (!campaign) {
     return (
       <Card className="p-6">
@@ -86,7 +86,7 @@ export default function CampaignImpact() {
   return <Detail key={campaign.id} campaign={campaign} />;
 }
 
-function Detail({ campaign }: { campaign: CampaignDef }) {
+function Detail({ campaign }: { campaign: PublicCampaign }) {
   const navigate = useNavigate();
   const { province, grade, subject, win } = useFilters();
   const ids = useMemo(() => cellFilter({ province, grade, subject }), [province, grade, subject]);

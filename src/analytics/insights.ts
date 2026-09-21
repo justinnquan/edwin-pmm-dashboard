@@ -4,8 +4,8 @@
    AND minimum N.
 =========================================================================== */
 import type { Metric } from "../data/schema";
-import { PROVINCES, GRADES, CELLS } from "../data/segments";
-import { TODAY, addDays, fmtShort, provisioned } from "../data/calendar";
+import { src } from "../data/source";
+import { addDays, fmtShort } from "../lib/dates";
 import { MIN_N, METRIC_LABEL } from "./constants";
 import { adjustedChange } from "./kpis";
 import { campaignImpact, campaignsInWindow } from "./attribution";
@@ -31,7 +31,7 @@ export function buildInsights(
   let suppressed = 0;
 
   // R1 — seasonality guard on the headline metric.
-  const wow = adjustedChange("wau", ids, TODAY, 7);
+  const wow = adjustedChange("wau", ids, src().asOf, 7);
   if (wow) {
     if (Math.abs(wow.raw) >= 0.1 && !wow.material) {
       out.push({
@@ -75,14 +75,15 @@ export function buildInsights(
   }
 
   // R3 — segment declines.
-  for (const p of PROVINCES)
-    for (const g of GRADES) {
+  const cells = src().cells;
+  for (const p of src().dimensions.province)
+    for (const g of src().dimensions.grade) {
       const segIds = ids.filter(
-        (id) => CELLS[id].province === p.k && CELLS[id].grade === g.k
+        (id) => cells[id].province === p && cells[id].grade === g
       );
       if (!segIds.length) continue;
-      const seats = segIds.reduce((s, id) => s + provisioned(TODAY) * CELLS[id].weight, 0);
-      const ch = adjustedChange("classesCreated", segIds, TODAY, 14);
+      const seats = src().seatsOn(src().asOf, segIds) ?? 0;
+      const ch = adjustedChange("classesCreated", segIds, src().asOf, 14);
       if (!ch) continue;
       if (seats < MIN_N) {
         suppressed++;
@@ -91,7 +92,7 @@ export function buildInsights(
       if (ch.material && ch.adjusted < 0) {
         out.push({
           tone: "negative",
-          text: `Class creation in ${p.k} ${g.k} is ${pct(
+          text: `Class creation in ${p} ${g} is ${pct(
             ch.adjusted
           )} against the seasonal baseline.`,
           detail:

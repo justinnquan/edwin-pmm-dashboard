@@ -2,7 +2,7 @@
    /components — CAMPAIGN-TYPE STYLING (shared by Timeline + Calendar)
    One colour per campaign type, plus a legend. Presentation only.
 =========================================================================== */
-import { CAMPAIGNS } from "../data/campaigns";
+import { src } from "../data/source";
 import { T } from "../theme/tokens";
 
 export const TYPE_COLORS: Record<string, string> = {
@@ -18,12 +18,13 @@ export const typeColor = (type: string): string => TYPE_COLORS[type] ?? T.muted;
 export const RELEASE_COLOR = T.navy;
 
 /** Campaign types actually present, in first-seen order. */
-export const CAMPAIGN_TYPES: string[] = Array.from(new Set(CAMPAIGNS.map((c) => c.type)));
+export const campaignTypes = (): string[] =>
+  Array.from(new Set(src().campaigns.map((c) => c.type)));
 
 export function CampaignTypeLegend({ withRelease = true }: { withRelease?: boolean }) {
   return (
     <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs" style={{ color: T.soft }}>
-      {CAMPAIGN_TYPES.map((t) => (
+      {campaignTypes().map((t: string) => (
         <span key={t} className="flex items-center gap-2">
           <span
             style={{ width: 10, height: 10, borderRadius: 2, background: typeColor(t), display: "inline-block" }}

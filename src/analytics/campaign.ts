@@ -9,27 +9,28 @@
    PMM-authored `objectiveMetric`, which will exist in real data; `effects` will
    not. Reading it here would both flatter results and break the real-data swap.
 =========================================================================== */
-import type { CampaignDef, Metric, SummableMetric } from "../data/schema";
-import { CELLS } from "../data/segments";
-import { CAMPAIGNS } from "../data/campaigns";
-import { TODAY, addDays, daysBetween, provisioned } from "../data/calendar";
+import type { PublicCampaign, Metric, SummableMetric } from "../data/schema";
+import { src } from "../data/source";
+import { addDays, daysBetween, fromIso } from "../lib/dates";
 import { MIN_N, MATERIALITY, CONFIDENCE_Z, METRIC_LABEL } from "./constants";
 import { windowMean, adjustedSE } from "./kpis";
 import { campaignImpact, campaignsInWindow, reachedIn } from "./attribution";
 import { pct } from "./format";
 
 /* --- Channel metrics ------------------------------------------------------- */
-export const campaignOpens = (c: CampaignDef): number => Math.round(c.sends * c.openRate);
-export const campaignClicks = (c: CampaignDef): number => Math.round(c.sends * c.clickRate);
-export const campaignCTR = (c: CampaignDef): number => c.clickRate; // clicks / sends
+// Read-throughs: a real source reports opens and clicks, it does not derive
+// them from a rate.
+export const campaignOpens = (c: PublicCampaign): number => c.opens;
+export const campaignClicks = (c: PublicCampaign): number => c.clicks;
+export const campaignCTR = (c: PublicCampaign): number => c.clickRate; // clicks / sends
 /** CTOR is only meaningful where opens are a real funnel step. In-app and
     release-notes channels have openRate 1.0 (no open concept), so CTOR would
     just duplicate CTR — return null there and render "N/A". */
-export const campaignCTOR = (c: CampaignDef): number | null =>
+export const campaignCTOR = (c: PublicCampaign): number | null =>
   c.openRate > 0 && c.openRate < 1 ? c.clickRate / c.openRate : null;
 
 /** The metric a campaign is judged against — its declared objective. */
-export function primaryMetric(c: CampaignDef): Metric {
+export function primaryMetric(c: PublicCampaign): Metric {
   return c.objectiveMetric;
 }
 
@@ -70,22 +71,24 @@ export type SegmentComparison =
     };
 
 export function segmentComparison(
-  campaign: CampaignDef,
+  campaign: PublicCampaign,
   metric: SummableMetric,
   ids: number[],
   windowDays: number
 ): SegmentComparison {
-  const launch = new Date(campaign.launch + "T00:00:00Z");
-  const elapsed = daysBetween(launch, TODAY);
-  const sendIds = ids.filter((id) => campaign.target(CELLS[id]));
-  const restIds = ids.filter((id) => !campaign.target(CELLS[id]));
+  const launch = fromIso(campaign.launch);
+  const elapsed = daysBetween(launch, src().asOf);
+  const cells = src().cells;
+  const sendIds = ids.filter((id) => campaign.target(cells[id]));
+  const restIds = ids.filter((id) => !campaign.target(cells[id]));
 
   if (!sendIds.length) return { state: "out-of-segment" };
   if (!restIds.length) return { state: "no-holdout" };
   if (elapsed < windowDays) return { state: "insufficient-window", elapsed, needed: windowDays };
 
-  const n = reachedIn([campaign.id], sendIds);
-  const restSeats = restIds.reduce((s, id) => s + provisioned(TODAY) * CELLS[id].weight, 0);
+  // No exposure data is not zero reach: it fails the gate and says so.
+  const n = reachedIn([campaign.id], sendIds) ?? 0;
+  const restSeats = src().seatsOn(src().asOf, restIds) ?? 0;
   if (n < MIN_N || restSeats < MIN_N) return { state: "insufficient-n", n };
 
   const send = groupAdjusted(metric, sendIds, launch, windowDays);
@@ -108,14 +111,14 @@ export interface WeekPoint {
 }
 
 export function cohortProgression(
-  campaign: CampaignDef,
+  campaign: PublicCampaign,
   metric: SummableMetric,
   ids: number[]
 ): WeekPoint[] {
-  const launch = new Date(campaign.launch + "T00:00:00Z");
-  const targetIds = ids.filter((id) => campaign.target(CELLS[id]));
+  const launch = fromIso(campaign.launch);
+  const targetIds = ids.filter((id) => campaign.target(src().cells[id]));
   if (!targetIds.length) return [];
-  const elapsed = daysBetween(launch, TODAY);
+  const elapsed = daysBetween(launch, src().asOf);
   const maxWeeks = Math.min(8, Math.floor(elapsed / 7));
 
   const pre = windowMean(metric, targetIds, addDays(launch, -1), 7);
@@ -193,7 +196,7 @@ export interface ChannelRoll {
 /** Roll-up over campaigns launched within `rangeDays`, consistent with the
     global date filter (it previously summed lifetime sends regardless of range). */
 export function channelRollup(ids: number[], windowDays: number, rangeDays: number): ChannelRoll[] {
-  const map = new Map<string, CampaignDef[]>();
+  const map = new Map<string, PublicCampaign[]>();
   for (const c of campaignsInWindow(rangeDays)) {
     const list = map.get(c.channel);
     if (list) list.push(c);
@@ -219,10 +222,11 @@ export function channelRollup(ids: number[], windowDays: number, rangeDays: numb
       campaigns: list.length,
       sends,
       ctr: sends ? ctrNum / sends : 0,
-      reached: reachedIn(
-        list.map((c) => c.id),
-        ids
-      ),
+      reached:
+        reachedIn(
+          list.map((c) => c.id),
+          ids
+        ) ?? 0,
       assoc: w ? wsum / w : null,
     });
   }
@@ -237,7 +241,7 @@ export interface Interpretation {
 }
 
 export function campaignInterpretation(
-  campaign: CampaignDef,
+  campaign: PublicCampaign,
   ids: number[],
   windowDays: number
 ): Interpretation | null {

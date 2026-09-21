@@ -17,8 +17,8 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import type { Metric, SeriesPoint } from "../data/schema";
-import { CAMPAIGNS, RELEASES } from "../data/campaigns";
-import { TODAY, addDays, fmtShort } from "../data/calendar";
+import { src } from "../data/source";
+import { addDays, fmtShort } from "../lib/dates";
 import { METRIC_LABEL } from "../analytics/constants";
 import { int, pct } from "../analytics/format";
 import { cellFilter, seriesFor } from "../analytics/kpis";
@@ -83,7 +83,7 @@ function MetricLane({
   series: SeriesPoint[];
   showX: boolean;
 }) {
-  const releaseHits = RELEASES.filter((r) => series.some((s) => s.date === r.date));
+  const releaseHits = src().releases.filter((r) => series.some((s) => s.date === r.date));
   return (
     <div className="relative" style={{ height: showX ? 156 : 138 }}>
       <div
@@ -144,8 +144,8 @@ export default function ActivityTimeline() {
   const { province, grade, subject, range } = useFilters();
   const ids = useMemo(() => cellFilter({ province, grade, subject }), [province, grade, subject]);
 
-  const from = addDays(TODAY, -range);
-  const to = TODAY;
+  const from = addDays(src().asOf, -range);
+  const to = src().asOf;
   const fromMs = from.getTime();
   const toMs = to.getTime();
   const span = Math.max(1, toMs - fromMs);
@@ -161,11 +161,11 @@ export default function ActivityTimeline() {
   );
 
   const campaigns = useMemo(
-    () => CAMPAIGNS.filter((c) => ms(c.launch) >= fromMs && ms(c.launch) <= toMs),
+    () => src().campaigns.filter((c) => ms(c.launch) >= fromMs && ms(c.launch) <= toMs),
     [fromMs, toMs]
   );
   const releases = useMemo(
-    () => RELEASES.filter((r) => ms(r.date) >= fromMs && ms(r.date) <= toMs),
+    () => src().releases.filter((r) => ms(r.date) >= fromMs && ms(r.date) <= toMs),
     [fromMs, toMs]
   );
 

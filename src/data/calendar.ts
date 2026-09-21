@@ -1,22 +1,18 @@
 /* ===========================================================================
-   /data — CALENDAR, RNG, SEASONALITY, PROVISIONED POPULATION
-   The generator's ground truth. The analytics layer is NOT allowed to read
-   the seasonal model directly — it must recover seasonality from prior-year
-   data.
+   /data — RNG, SEASONALITY, PROVISIONED POPULATION
+   GROUND TRUTH. Nothing outside the synthetic generator may import this file:
+   the seasonal model here is the answer the analytics layer is supposed to
+   recover from prior-year data on its own, and the provisioned curve is a
+   fiction that real data must replace. Enforced by the no-restricted-imports
+   rule in eslint.config.js.
+
+   Pure date arithmetic used to live here too, which forced every layer that
+   needed `addDays` to import the one module it was least allowed to touch.
+   It now lives in src/lib/dates.ts.
 =========================================================================== */
 
 export const TODAY = new Date(Date.UTC(2026, 7, 26)); // Wed 26 Aug 2026
 export const START = new Date(Date.UTC(2025, 1, 1)); // 1 Feb 2025 (gives YoY depth)
-export const DAY = 86400000;
-
-export const iso = (d: Date): string => d.toISOString().slice(0, 10);
-export const addDays = (d: Date, n: number): Date => new Date(d.getTime() + n * DAY);
-export const daysBetween = (a: Date, b: Date): number =>
-  Math.round((b.getTime() - a.getTime()) / DAY);
-export const fmtShort = (s: string): string => {
-  const d = new Date(s + "T00:00:00Z");
-  return d.toLocaleDateString("en-CA", { month: "short", day: "numeric", timeZone: "UTC" });
-};
 
 // Deterministic RNG so every reviewer sees identical numbers.
 export function mulberry32(seed: number): () => number {

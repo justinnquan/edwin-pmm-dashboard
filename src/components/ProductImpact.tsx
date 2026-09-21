@@ -3,7 +3,7 @@
    and Campaign Impact). Presentation only; results come from /analytics.
 =========================================================================== */
 import type { ReactNode } from "react";
-import type { CampaignDef, CampaignImpact, Metric } from "../data/schema";
+import type { PublicCampaign, CampaignImpact, Metric } from "../data/schema";
 import { T, num } from "../theme/tokens";
 import { MIN_N, METRIC_LABEL } from "../analytics/constants";
 import { pct } from "../analytics/format";
@@ -51,7 +51,7 @@ export function ProductImpactCard({
   ids,
   windowDays,
 }: {
-  campaign: CampaignDef;
+  campaign: PublicCampaign;
   metric: Metric;
   ids: number[];
   windowDays: number;
@@ -104,7 +104,7 @@ export function ProductImpactGrid({
   windowDays,
   metrics = IMPACT_METRICS,
 }: {
-  campaign: CampaignDef;
+  campaign: PublicCampaign;
   ids: number[];
   windowDays: number;
   metrics?: Metric[];

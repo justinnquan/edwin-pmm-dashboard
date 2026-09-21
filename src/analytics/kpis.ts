@@ -4,13 +4,12 @@
    ungated number by accident.
 =========================================================================== */
 import type { Filters, SeriesPoint, SummableMetric } from "../data/schema";
-import { CELLS } from "../data/segments";
-import { DATA } from "../data/generate";
-import { addDays, iso, provisioned } from "../data/calendar";
+import { src } from "../data/source";
+import { addDays, iso } from "../lib/dates";
 import { YOY_LAG, BASELINE_SMOOTH, MATERIALITY, CONFIDENCE_Z } from "./constants";
 
 export function cellFilter(f: Filters): number[] {
-  return CELLS.filter(
+  return src().cells.filter(
     (c) =>
       (f.province === "All" || c.province === f.province) &&
       (f.grade === "All" || c.grade === f.grade) &&
@@ -20,7 +19,7 @@ export function cellFilter(f: Filters): number[] {
 
 // Sum a metric across selected cells on one date.
 export function sumOn(dateKey: string, metric: SummableMetric, ids: number[]): number | null {
-  const list = DATA.byDate.get(dateKey);
+  const list = src().rowsOn(dateKey);
   if (!list) return null;
   let s = 0;
   for (const id of ids) s += list[id][metric];
@@ -46,7 +45,13 @@ function baselineOn(metric: SummableMetric, ids: number[], date: Date): number |
     const cur = addDays(date, o);
     const prior = addDays(cur, -YOY_LAG);
     const pv = sumOn(iso(prior), metric, ids);
-    if (pv != null) vals.push(pv * (provisioned(cur) / provisioned(prior)));
+    if (pv == null) continue;
+    // Rescale the prior year for seat growth. Where the source cannot answer
+    // for either date, compare like for like rather than inventing a ratio.
+    const now = src().seatsOn(cur, ids);
+    const then = src().seatsOn(prior, ids);
+    const scale = now != null && then != null && then > 0 ? now / then : 1;
+    vals.push(pv * scale);
   }
   return vals.length ? mean(vals) : null;
 }
@@ -260,14 +265,14 @@ export function seatWeightedRate(
   days: number
 ): number | null {
   const seatsById = new Map<number, number>(
-    ids.map((id) => [id, provisioned(endDate) * CELLS[id].weight])
+    ids.map((id) => [id, src().seatsOn(endDate, [id]) ?? 0])
   );
   const totalSeats = ids.reduce((s, id) => s + (seatsById.get(id) ?? 0), 0);
   if (totalSeats <= 0) return null;
   const dayRates: number[] = [];
   for (let i = 0; i < days; i++) {
     const k = iso(addDays(endDate, -i));
-    const list = DATA.byDate.get(k);
+    const list = src().rowsOn(k);
     if (!list) continue;
     let numr = 0;
     for (const id of ids) numr += list[id][metric] * (seatsById.get(id) ?? 0);

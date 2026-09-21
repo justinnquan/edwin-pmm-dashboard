@@ -5,8 +5,8 @@
 =========================================================================== */
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import type { CampaignDef, Release } from "../data/schema";
-import { CAMPAIGNS, RELEASES } from "../data/campaigns";
+import type { PublicCampaign, Release } from "../data/schema";
+import { src } from "../data/source";
 import { T } from "../theme/tokens";
 import { Card } from "../components/primitives";
 import { typeColor, RELEASE_COLOR, CampaignTypeLegend } from "../components/campaignStyle";
@@ -34,17 +34,17 @@ export default function CampaignCalendar() {
   });
 
   const { campByDay, relByDay, monthCount } = useMemo(() => {
-    const campByDay = new Map<number, CampaignDef[]>();
+    const campByDay = new Map<number, PublicCampaign[]>();
     const relByDay = new Map<number, Release[]>();
     let monthCount = 0;
-    for (const c of CAMPAIGNS) {
+    for (const c of src().campaigns) {
       const p = parts(c.launch);
       if (p.y === ym.y && p.m === ym.m) {
         (campByDay.get(p.day) ?? campByDay.set(p.day, []).get(p.day)!).push(c);
         monthCount++;
       }
     }
-    for (const r of RELEASES) {
+    for (const r of src().releases) {
       const p = parts(r.date);
       if (p.y === ym.y && p.m === ym.m)
         (relByDay.get(p.day) ?? relByDay.set(p.day, []).get(p.day)!).push(r);

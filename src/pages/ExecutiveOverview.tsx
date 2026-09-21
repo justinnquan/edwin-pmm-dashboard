@@ -6,14 +6,14 @@
 import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { T, num } from "../theme/tokens";
-import { CAMPAIGNS } from "../data/campaigns";
-import { CELLS } from "../data/segments";
-import { TODAY, addDays, provisioned } from "../data/calendar";
+import { src } from "../data/source";
+import { addDays } from "../lib/dates";
 import { METRIC_LABEL } from "../analytics/constants";
 import { pct, int } from "../analytics/format";
 import { cellFilter, seriesFor, windowMean, adjustedChange, seatWeightedRate } from "../analytics/kpis";
 import { campaignsInWindow, reachedIn, campaignImpact } from "../analytics/attribution";
 import { buildInsights } from "../analytics/insights";
+import { seatsOf } from "../analytics/adoption";
 import { useFilters } from "../state/filterStore";
 import { Card } from "../components/primitives";
 import { EmptyState } from "../components/states";
@@ -35,19 +35,19 @@ export default function ExecutiveOverview() {
 
   const model = useMemo(() => {
     if (!ids.length) return null;
-    const from = addDays(TODAY, -range);
-    const series = seriesFor(metric, ids, from, TODAY);
+    const from = addDays(src().asOf, -range);
+    const series = seriesFor(metric, ids, from, src().asOf);
 
-    const seats = ids.reduce((s, id) => s + provisioned(TODAY) * CELLS[id].weight, 0);
-    const wauNow = windowMean("wau", ids, TODAY, 7);
+    const seats = seatsOf(ids);
+    const wauNow = windowMean("wau", ids, src().asOf, 7);
     const activeRate = wauNow != null ? wauNow / seats : null;
 
-    const wauCh = adjustedChange("wau", ids, TODAY, 7);
-    const ahaNow = windowMean("ahaUsers", ids, TODAY, 7);
+    const wauCh = adjustedChange("wau", ids, src().asOf, 7);
+    const ahaNow = windowMean("ahaUsers", ids, src().asOf, 7);
     const ahaRate = ahaNow != null && wauNow ? ahaNow / wauNow : null;
-    const ahaCh = adjustedChange("ahaUsers", ids, TODAY, 14);
-    const ret = seatWeightedRate("retentionW4", ids, TODAY, 7);
-    const resCh = adjustedChange("resourceOpens", ids, TODAY, 14);
+    const ahaCh = adjustedChange("ahaUsers", ids, src().asOf, 14);
+    const ret = seatWeightedRate("retentionW4", ids, src().asOf, 7);
+    const resCh = adjustedChange("resourceOpens", ids, src().asOf, 14);
 
     const recent = campaignsInWindow(30);
     const reached = reachedIn(
@@ -229,7 +229,7 @@ export default function ExecutiveOverview() {
             <TrendChart
               series={model.series}
               metric={metric}
-              campaigns={CAMPAIGNS}
+              campaigns={[...src().campaigns]}
               onPick={openCampaign}
             />
           </div>

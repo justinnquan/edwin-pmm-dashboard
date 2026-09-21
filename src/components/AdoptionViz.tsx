@@ -13,7 +13,7 @@ import {
   CartesianGrid,
 } from "recharts";
 import { T, num } from "../theme/tokens";
-import { fmtShort } from "../data/calendar";
+import { fmtShort } from "../lib/dates";
 import { pct, pctAbs, int } from "../analytics/format";
 import type { FunnelStage, Gauge as GaugeData, FeatureAdoption } from "../analytics/adoption";
 import type { SeriesPoint } from "../data/schema";

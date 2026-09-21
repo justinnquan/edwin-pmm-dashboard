@@ -5,8 +5,7 @@
    than a misleading number.
 =========================================================================== */
 import type { Cell } from "../data/schema";
-import { CELLS, PROVINCES, GRADES, SUBJECTS } from "../data/segments";
-import { TODAY, provisioned } from "../data/calendar";
+import { src } from "../data/source";
 import { MIN_N } from "./constants";
 import { windowMean, seatWeightedRate } from "./kpis";
 import { campaignsInWindow, campaignImpact } from "./attribution";
@@ -22,10 +21,10 @@ export const DIMENSIONS: { key: Dimension; label: string }[] = [
 
 const valuesFor = (d: Dimension): string[] =>
   d === "province"
-    ? PROVINCES.map((p) => p.k)
+    ? src().dimensions.province
     : d === "grade"
-    ? GRADES.map((g) => g.k)
-    : SUBJECTS.map((s) => s.k);
+    ? src().dimensions.grade
+    : src().dimensions.subject;
 
 const matches = (c: Cell, d: Dimension, v: string): boolean =>
   d === "province" ? c.province === v : d === "grade" ? c.grade === v : c.subject === v;
@@ -44,15 +43,15 @@ export interface SegmentRow {
 }
 
 function rowFor(ids: number[], key: string, windowDays: number): SegmentRow {
-  const seats = ids.reduce((s, id) => s + provisioned(TODAY) * CELLS[id].weight, 0);
+  const seats = src().seatsOn(src().asOf, ids) ?? 0;
   if (!ids.length || seats < MIN_N) {
     return { key, seats, gated: true, wau: null, activeRate: null, adoptionRate: null, retention: null, assoc: null, assocReason: null };
   }
-  const wau = windowMean("wau", ids, TODAY, 7);
+  const wau = windowMean("wau", ids, src().asOf, 7);
   const activeRate = wau != null && seats > 0 ? wau / seats : null;
-  const ahaNow = windowMean("ahaUsers", ids, TODAY, 7);
+  const ahaNow = windowMean("ahaUsers", ids, src().asOf, 7);
   const adoptionRate = ahaNow != null && wau ? ahaNow / wau : null;
-  const retention = seatWeightedRate("retentionW4", ids, TODAY, 7);
+  const retention = seatWeightedRate("retentionW4", ids, src().asOf, 7);
 
   let wsum = 0;
   let w = 0;
@@ -79,7 +78,7 @@ export function segmentRows(
 ): SegmentRow[] {
   const baseSet = new Set(baseIds);
   return valuesFor(dimension).map((v) => {
-    const ids = CELLS.filter((c) => baseSet.has(c.id) && matches(c, dimension, v)).map((c) => c.id);
+    const ids = src().cells.filter((c) => baseSet.has(c.id) && matches(c, dimension, v)).map((c) => c.id);
     return rowFor(ids, v, windowDays);
   });
 }
@@ -97,20 +96,20 @@ export interface Opportunity {
 export function opportunityRanking(baseIds: number[]): Opportunity[] {
   const baseSet = new Set(baseIds);
   const out: Opportunity[] = [];
-  for (const p of PROVINCES)
-    for (const g of GRADES) {
-      const ids = CELLS.filter(
-        (c) => baseSet.has(c.id) && c.province === p.k && c.grade === g.k
+  for (const p of src().dimensions.province)
+    for (const g of src().dimensions.grade) {
+      const ids = src().cells.filter(
+        (c) => baseSet.has(c.id) && c.province === p && c.grade === g
       ).map((c) => c.id);
       if (!ids.length) continue;
-      const seats = ids.reduce((s, id) => s + provisioned(TODAY) * CELLS[id].weight, 0);
+      const seats = src().seatsOn(src().asOf, ids) ?? 0;
       if (seats < MIN_N) continue;
-      const wau = windowMean("wau", ids, TODAY, 7);
+      const wau = windowMean("wau", ids, src().asOf, 7);
       if (wau == null || seats <= 0) continue;
       const activeRate = wau / seats;
       const gap = MONTHLY_TARGET - activeRate;
       if (gap <= 0) continue;
-      out.push({ key: `${p.k} · ${g.k}`, seats, activeRate, gapToTarget: gap, size: gap * seats });
+      out.push({ key: `${p} · ${g}`, seats, activeRate, gapToTarget: gap, size: gap * seats });
     }
   return out.sort((a, b) => b.size - a.size);
 }

@@ -13,11 +13,13 @@
       adjusted change with its material verdict.
 
    This script lives outside /analytics, so it may read the generator's answer
-   key (`effects`) to score recovery — the barrier only applies to the app.
+   key (`effects`) to score recovery — the barrier only applies to the app. It
+   pairs each public campaign (what the app sees) with its generator definition
+   (what actually went in) by id.
 =========================================================================== */
-import { CELLS } from "../src/data/segments";
 import { CAMPAIGNS } from "../src/data/campaigns";
-import { addDays, daysBetween, iso } from "../src/data/calendar";
+import { src } from "../src/data/source";
+import { addDays, daysBetween, iso, fromIso } from "../src/lib/dates";
 import { cellFilter, windowStats } from "../src/analytics/kpis";
 import { campaignImpact } from "../src/analytics/attribution";
 import { cohortProgression, sustainedVerdict } from "../src/analytics/campaign";
@@ -71,7 +73,7 @@ const fp = (v: number) => `${v >= 0 ? "+" : ""}${(v * 100).toFixed(1)}%`;
 const pad = (s: string, n: number) => s.padEnd(n);
 const padL = (s: string, n: number) => s.padStart(n);
 
-const ALL_IDS = CELLS.map((c) => c.id);
+const ALL_IDS = src().cells.map((c) => c.id);
 const SMALL_IDS = cellFilter({ province: "ON", grade: "Secondary (9–12)", subject: "English/ELA" });
 
 interface Bucket {
@@ -138,11 +140,13 @@ function reportRecovery() {
       padL("Material", 10) +
       padL("Verdict", 14)
   );
-  const today = new Date(Date.UTC(2026, 7, 26));
-  for (const c of CAMPAIGNS) {
-    const launch = new Date(c.launch + "T00:00:00Z");
+  const today = src().asOf;
+  const truth = new Map(CAMPAIGNS.map((c) => [c.id, c.effects]));
+  for (const c of src().campaigns) {
+    const launch = fromIso(c.launch);
     const elapsed = daysBetween(launch, today);
-    const injected = (c.effects as Partial<Record<Metric, number>>)[c.objectiveMetric] ?? 0;
+    const effects = (truth.get(c.id) ?? {}) as Partial<Record<Metric, number>>;
+    const injected = effects[c.objectiveMetric] ?? 0;
     const fits = WINDOWS.filter((w) => elapsed >= w);
     const wins = fits.length ? fits : [Math.min(...WINDOWS)];
     const verdict = sustainedVerdict(cohortProgression(c, c.objectiveMetric, ALL_IDS));

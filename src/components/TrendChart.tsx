@@ -15,18 +15,18 @@ import {
   Area,
 } from "recharts";
 import { T, num } from "../theme/tokens";
-import { fmtShort } from "../data/calendar";
-import { RELEASES } from "../data/campaigns";
+import { fmtShort } from "../lib/dates";
+import { src } from "../data/source";
 import { METRIC_LABEL } from "../analytics/constants";
 import { pct, int } from "../analytics/format";
-import type { CampaignDef, SeriesPoint, SummableMetric } from "../data/schema";
+import type { PublicCampaign, SeriesPoint, SummableMetric } from "../data/schema";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 function ChartTooltip({ active, payload, label, campaignsByDate }: any) {
   if (!active || !payload || !payload.length) return null;
   const v = payload.find((p: any) => p.dataKey === "value");
   const b = payload.find((p: any) => p.dataKey === "baseline");
-  const c: CampaignDef | undefined = campaignsByDate.get(label);
+  const c: PublicCampaign | undefined = campaignsByDate.get(label);
   const gap = v && b && b.value ? v.value / b.value - 1 : null;
   return (
     <div
@@ -76,11 +76,11 @@ export function TrendChart({
 }: {
   series: SeriesPoint[];
   metric: SummableMetric;
-  campaigns: CampaignDef[];
+  campaigns: PublicCampaign[];
   onPick: (id: string) => void;
 }) {
   const byDate = useMemo(() => {
-    const m = new Map<string, CampaignDef>();
+    const m = new Map<string, PublicCampaign>();
     campaigns.forEach((c) => m.set(c.launch, c));
     return m;
   }, [campaigns]);
@@ -96,7 +96,7 @@ export function TrendChart({
     campaignId: byDate.get(d.date)?.id,
   }));
 
-  const releaseHits = RELEASES.filter((r) => series.some((s) => s.date === r.date));
+  const releaseHits = src().releases.filter((r) => series.some((s) => s.date === r.date));
 
   return (
     <div style={{ width: "100%", height: 320 }}>

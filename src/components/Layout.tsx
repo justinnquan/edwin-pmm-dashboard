@@ -9,8 +9,10 @@
 import { Suspense, useState } from "react";
 import { Outlet, useLocation, NavLink } from "react-router-dom";
 import type { SummableMetric } from "../data/schema";
-import { GRADES, SUBJECTS } from "../data/segments";
-import { MIN_N, MATERIALITY, CONFIDENCE_Z, BASELINE_SMOOTH } from "../analytics/constants";
+import { src } from "../data/source";
+import { MIN_N, MATERIALITY, CONFIDENCE_Z, BASELINE_SMOOTH, YOY_LAG } from "../analytics/constants";
+import { useDataSource } from "../state/dataStore";
+import { fmtShort, iso } from "../lib/dates";
 import { pctAbs } from "../analytics/format";
 import { useFilters } from "../state/filterStore";
 import { T } from "../theme/tokens";
@@ -25,6 +27,11 @@ export function Layout() {
   const { pathname } = useLocation();
   const meta = navFor(pathname);
   const { view, range, win, metric, province, grade, subject, update } = useFilters();
+  const version = useDataSource((s) => s.version);
+  // Read through src() rather than caching: the strip must describe whatever
+  // source is active right now.
+  const source = src();
+  const hasYoY = source.coverage.historyDays >= YOY_LAG + 7;
   const isPMM = view === "Product Marketing";
   const showTrendMetric = isPMM && pathname === "/";
   const [methodOpen, setMethodOpen] = useState(false);
@@ -118,13 +125,13 @@ export function Layout() {
           <Select
             label="Grade"
             value={grade}
-            options={["All", ...GRADES.map((g) => g.k)]}
+            options={["All", ...src().dimensions.grade]}
             onChange={(v) => update({ grade: v })}
           />
           <Select
             label="Subject"
             value={subject}
-            options={["All", ...SUBJECTS.map((s) => s.k)]}
+            options={["All", ...src().dimensions.subject]}
             onChange={(v) => update({ subject: v })}
           />
           <Select
@@ -149,7 +156,8 @@ export function Layout() {
           style={{ background: "#F1F6FB", borderBottom: `1px solid ${T.border}`, color: T.soft }}
         >
           <span>
-            <b style={{ color: T.navy }}>Data as of</b> 26 Aug 2026 · synthetic
+            <b style={{ color: T.navy }}>Data as of</b> {fmtShort(iso(source.asOf))} ·{" "}
+            {source.label}
           </span>
           <span>
             <b style={{ color: T.navy }}>Baseline</b> prior year, ±{BASELINE_SMOOTH}-day smoothed, rescaled for seat growth
@@ -160,6 +168,17 @@ export function Layout() {
           <span>
             <b style={{ color: T.navy }}>Materiality</b> {pctAbs(MATERIALITY)} floor or {CONFIDENCE_Z}× its own error, whichever is higher
           </span>
+          {!hasYoY && (
+            <span style={{ color: T.warn, fontWeight: 700 }}>
+              No seasonal baseline — {source.coverage.historyDays} days of history, needs{" "}
+              {YOY_LAG + 7}
+            </span>
+          )}
+          {!source.coverage.perCellSeats && (
+            <span title="Provisioned seats are allocated to segments by population weight rather than measured per segment. Segment-level rates are therefore modelled.">
+              <b style={{ color: T.navy }}>Denominator</b> modelled
+            </span>
+          )}
           <span style={{ color: T.warn, fontWeight: 700 }}>Association, not causation</span>
           <button
             onClick={() => setMethodOpen(true)}
@@ -171,9 +190,13 @@ export function Layout() {
         </div>
 
         <div className="p-4 sm:p-6">
-          <ErrorBoundary resetKey={pathname}>
+          {/* Keying on `version` remounts every page when the data source is
+              swapped. Remounting discards each page's useMemo cache wholesale,
+              which is more reliable than adding `version` to a dozen dependency
+              arrays and remembering to do it on every page added later. */}
+          <ErrorBoundary resetKey={`${pathname}:${version}`}>
             <Suspense fallback={<PageLoading />}>
-              <Outlet />
+              <Outlet key={version} />
             </Suspense>
           </ErrorBoundary>
         </div>

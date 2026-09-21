@@ -10,8 +10,8 @@
    module must surface that these are modelled estimates.
 =========================================================================== */
 import type { SummableMetric } from "../data/schema";
-import { CELLS } from "../data/segments";
-import { TODAY, addDays, iso, provisioned } from "../data/calendar";
+import { src } from "../data/source";
+import { addDays, iso } from "../lib/dates";
 import { sumOn, windowMean } from "./kpis";
 
 export const DAY7_TARGET = 0.7; // Day-7 activation OKR
@@ -21,7 +21,7 @@ const clamp = (v: number, lo: number, hi: number): number => Math.max(lo, Math.m
 
 /** Seats (provisioned teachers) in the selected segment, as of today. */
 export function seatsOf(ids: number[]): number {
-  return ids.reduce((s, id) => s + provisioned(TODAY) * CELLS[id].weight, 0);
+  return src().seatsOn(src().asOf, ids) ?? 0;
 }
 
 /** Events per active teacher over a trailing window: total metric flow divided
@@ -31,7 +31,7 @@ function perActive(metric: SummableMetric, ids: number[], days: number): number 
   let act = 0;
   let n = 0;
   for (let i = 0; i < days; i++) {
-    const d = addDays(TODAY, -i);
+    const d = addDays(src().asOf, -i);
     const f = sumOn(iso(d), metric, ids);
     const a = sumOn(iso(d), "dailyActive", ids);
     if (f != null && a != null) {
@@ -52,7 +52,7 @@ const reachFrom = (lambda: number | null): number =>
 /** Weekly-active share, and the monthly reach implied by four independent weeks. */
 function activeShares(ids: number[]): { seats: number; wauRate: number; monthly: number } {
   const seats = seatsOf(ids);
-  const wau = windowMean("wau", ids, TODAY, 7) ?? 0;
+  const wau = windowMean("wau", ids, src().asOf, 7) ?? 0;
   const wauRate = seats > 0 ? clamp(wau / seats, 0, 0.95) : 0;
   const monthly = clamp(1 - Math.pow(1 - wauRate, 4), 0, 0.98);
   return { seats, wauRate, monthly };
@@ -138,8 +138,8 @@ export interface FeatureAdoption {
 }
 
 export function featureAdoption(ids: number[]): FeatureAdoption[] {
-  const wau = windowMean("wau", ids, TODAY, 7) ?? 0;
-  const ahaNow = windowMean("ahaUsers", ids, TODAY, 7) ?? 0;
+  const wau = windowMean("wau", ids, src().asOf, 7) ?? 0;
+  const ahaNow = windowMean("ahaUsers", ids, src().asOf, 7) ?? 0;
   const out: FeatureAdoption[] = [
     { feature: "Resource library", reach: clamp(reachFrom(perActive("resourceOpens", ids, 30)), 0, 0.99) },
     { feature: "Assignments", reach: clamp(reachFrom(perActive("assignmentsCreated", ids, 30)), 0, 0.99) },

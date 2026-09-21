@@ -32,6 +32,18 @@ export interface Cell {
   engagement: number;
 }
 
+/** Which cells a campaign was aimed at. An omitted or empty dimension means
+    "all values of it", so `{}` targets the whole platform.
+
+    This is a serializable description rather than a predicate because real
+    campaign targeting arrives as data — Pardot list criteria, a CSV column —
+    not as code. The data source compiles it into a predicate once. */
+export interface TargetSpec {
+  province?: string[];
+  grade?: string[];
+  subject?: string[];
+}
+
 export interface CampaignDef {
   id: string;
   name: string;
@@ -39,7 +51,7 @@ export interface CampaignDef {
   channel: string;
   launch: string;
   audience: string;
-  target: (c: Cell) => boolean;
+  targetSpec: TargetSpec;
   sends: number;
   openRate: number;
   clickRate: number;
@@ -103,3 +115,76 @@ export type CampaignImpact =
       bPre: number;
       bPost: number;
     };
+
+/* ===========================================================================
+   THE DATA CONTRACT
+   Everything above /data reaches its data through this interface and nothing
+   else. A real adapter satisfies it; the synthetic generator satisfies it; no
+   consumer can tell which one it has.
+=========================================================================== */
+
+/** A campaign as the app is allowed to see it. Structurally omits `effects`
+    and `halfLife` — the generator's answer key — so reading them above /data
+    is a compile error rather than something code review has to catch. */
+export interface PublicCampaign {
+  id: string;
+  name: string;
+  type: string;
+  channel: string;
+  launch: string;
+  audience: string;
+  sends: number;
+  opens: number;
+  clicks: number;
+  openRate: number;
+  clickRate: number;
+  objectiveMetric: Metric;
+  targetSpec: TargetSpec;
+  /** Compiled from `targetSpec` by the source. */
+  target: (c: Cell) => boolean;
+}
+
+/** What this source can actually answer, so the UI can caveat honestly rather
+    than presenting a modelled figure as a measured one. */
+export interface Coverage {
+  /** False where a column is absent from the source and the metric is unavailable. */
+  metrics: Record<SummableMetric, boolean>;
+  /** True when de-duplicated campaign reach is real rather than unavailable. */
+  reach: boolean;
+  /** True when provisioned seats are measured per cell rather than allocated
+      from a population-level figure by segment weight. */
+  perCellSeats: boolean;
+  /** Days of history available. Below YOY_LAG + window, no seasonal baseline
+      can be computed and every adjusted figure must degrade to unavailable. */
+  historyDays: number;
+}
+
+export interface DataSource {
+  /** Stable identity for this source, e.g. "synthetic" or "file:2026-09-21". */
+  readonly id: string;
+  /** Human-readable provenance, shown in the methodology strip. */
+  readonly label: string;
+  /** The as-of date, derived from the data rather than the clock. */
+  readonly asOf: Date;
+  /** Dense and ordered so that `cells[i].id === i`. */
+  readonly cells: readonly Cell[];
+  readonly dimensions: { province: string[]; grade: string[]; subject: string[] };
+
+  /** Rows for one date, dense and indexed by cell id. Undefined when the date
+      is absent from the source — which must stay distinct from a date whose
+      values are genuinely zero. */
+  rowsOn(dateKey: string): DailyRow[] | undefined;
+
+  /** Provisioned seats across `cellIds` on `date`. Null outside the seat
+      table, so a rescale degrades instead of inventing a denominator. */
+  seatsOn(date: Date, cellIds: readonly number[]): number | null;
+
+  /** Distinct teachers reached by at least one of `campaignIds` within
+      `cellIds` — a de-duplicated union, not a sum. Null when the source has
+      no exposure data. */
+  reach(campaignIds: readonly string[], cellIds: readonly number[]): number | null;
+
+  readonly campaigns: readonly PublicCampaign[];
+  readonly releases: readonly Release[];
+  readonly coverage: Coverage;
+}

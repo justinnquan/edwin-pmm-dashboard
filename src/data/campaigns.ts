@@ -5,9 +5,11 @@
    pure seasonality, one high-CTR/no-impact, one sustained real lift, one dud.
 =========================================================================== */
 import type { Cell, CampaignDef, Metric, Release } from "./schema";
-import { daysBetween } from "./calendar";
+import { daysBetween, fromIso } from "../lib/dates";
+import { compileTarget } from "./synthetic";
 
-const ALL = (): boolean => true;
+/** Targets the whole platform. */
+const ALL = {};
 
 export const CAMPAIGNS: CampaignDef[] = [
   {
@@ -17,7 +19,7 @@ export const CAMPAIGNS: CampaignDef[] = [
     channel: "Pardot email",
     launch: "2026-06-01",
     audience: "ON + AB, Primary and Junior/Intermediate",
-    target: (c) => c.grade !== "Secondary (9–12)",
+    targetSpec: { grade: ["Primary (1–3)", "Junior/Intermediate (4–8)"] },
     sends: 19400,
     openRate: 0.41,
     clickRate: 0.062,
@@ -32,7 +34,7 @@ export const CAMPAIGNS: CampaignDef[] = [
     channel: "Pardot email",
     launch: "2026-07-14",
     audience: "All teachers",
-    target: ALL,
+    targetSpec: ALL,
     sends: 24100,
     openRate: 0.22,
     clickRate: 0.019,
@@ -47,7 +49,7 @@ export const CAMPAIGNS: CampaignDef[] = [
     channel: "In-product release notes",
     launch: "2026-08-05",
     audience: "All teachers",
-    target: ALL,
+    targetSpec: ALL,
     sends: 8900,
     openRate: 1.0,
     clickRate: 0.031,
@@ -62,7 +64,7 @@ export const CAMPAIGNS: CampaignDef[] = [
     channel: "Pardot email",
     launch: "2026-08-10",
     audience: "All teachers",
-    target: ALL,
+    targetSpec: ALL,
     sends: 27800,
     openRate: 0.48,
     clickRate: 0.094,
@@ -77,8 +79,7 @@ export const CAMPAIGNS: CampaignDef[] = [
     channel: "Pardot email",
     launch: "2026-08-17",
     audience: "Ontario, Secondary English/ELA",
-    target: (c) =>
-      c.province === "ON" && c.grade === "Secondary (9–12)" && c.subject === "English/ELA",
+    targetSpec: { province: ["ON"], grade: ["Secondary (9–12)"], subject: ["English/ELA"] },
     sends: 2180,
     openRate: 0.54,
     clickRate: 0.128,
@@ -93,7 +94,7 @@ export const CAMPAIGNS: CampaignDef[] = [
     channel: "In-app notification",
     launch: "2026-08-18",
     audience: "All teachers",
-    target: ALL,
+    targetSpec: ALL,
     sends: 6240,
     openRate: 1.0,
     clickRate: 0.27,
@@ -108,7 +109,7 @@ export const CAMPAIGNS: CampaignDef[] = [
     channel: "In-app notification",
     launch: "2026-08-24",
     audience: "All teachers",
-    target: ALL,
+    targetSpec: ALL,
     sends: 1980,
     openRate: 1.0,
     clickRate: 0.19,
@@ -123,13 +124,16 @@ export const RELEASES: Release[] = [
   { date: "2026-08-24", name: "Edwin Teaching System live" },
 ];
 
+// Compiled once: campaignMultiplier runs per cell per day per metric.
+const TARGETS = new Map(CAMPAIGNS.map((c) => [c.id, compileTarget(c.targetSpec)]));
+
 // Multiplier applied by the generator; decays from launch.
 export function campaignMultiplier(cell: Cell, date: Date, metric: Metric): number {
   let m = 1;
   for (const c of CAMPAIGNS) {
     const lift = c.effects[metric];
-    if (!lift || !c.target(cell)) continue;
-    const d = daysBetween(new Date(c.launch + "T00:00:00Z"), date);
+    if (!lift || !TARGETS.get(c.id)!(cell)) continue;
+    const d = daysBetween(fromIso(c.launch), date);
     if (d < 0) continue;
     m *= 1 + lift * Math.pow(0.5, d / c.halfLife);
   }

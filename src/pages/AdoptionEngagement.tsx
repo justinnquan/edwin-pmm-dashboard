@@ -6,7 +6,8 @@
 =========================================================================== */
 import { useMemo } from "react";
 import type { Metric } from "../data/schema";
-import { TODAY, addDays } from "../data/calendar";
+import { src } from "../data/source";
+import { addDays } from "../lib/dates";
 import { METRIC_LABEL } from "../analytics/constants";
 import { cellFilter, seriesFor } from "../analytics/kpis";
 import { activationFunnel, activationGauges, featureAdoption, seatsOf } from "../analytics/adoption";
@@ -26,13 +27,13 @@ export default function AdoptionEngagement() {
 
   const model = useMemo(() => {
     if (!ids.length) return null;
-    const from = addDays(TODAY, -range);
+    const from = addDays(src().asOf, -range);
     return {
       seats: seatsOf(ids),
       funnel: activationFunnel(ids),
       gauges: activationGauges(ids),
       features: featureAdoption(ids),
-      trends: TREND_METRICS.map((m) => ({ metric: m, series: seriesFor(m, ids, from, TODAY) })),
+      trends: TREND_METRICS.map((m) => ({ metric: m, series: seriesFor(m, ids, from, src().asOf) })),
     };
   }, [ids, range]);
 

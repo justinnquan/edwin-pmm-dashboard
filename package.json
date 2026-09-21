@@ -5,10 +5,11 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc --noEmit && vite build",
+    "build": "tsx scripts/check-layers.ts && tsc --noEmit && vite build",
     "typecheck": "tsc --noEmit",
     "null-test": "tsx scripts/null-test.ts",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "check:layers": "tsx scripts/check-layers.ts"
   },
   "dependencies": {
     "react": "^18.3.1",
