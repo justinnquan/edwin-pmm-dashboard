@@ -9,9 +9,12 @@
     "typecheck": "tsc --noEmit",
     "null-test": "tsx scripts/null-test.ts",
     "preview": "vite preview",
-    "check:layers": "tsx scripts/check-layers.ts"
+    "check:layers": "tsx scripts/check-layers.ts",
+    "export-sample": "tsx scripts/export-sample.ts"
   },
   "dependencies": {
+    "@types/papaparse": "^5.5.2",
+    "papaparse": "^5.7.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.30.6",

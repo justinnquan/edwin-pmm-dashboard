@@ -7,7 +7,7 @@
 import type { DailyRow } from "./schema";
 import { CELLS } from "./segments";
 import { CAMPAIGNS, campaignMultiplier } from "./campaigns";
-import { compileTarget } from "./synthetic";
+import { compileTarget } from "./target";
 import { START, TODAY, mulberry32, seasonalRate, provisioned, DOW } from "./calendar";
 import { addDays, daysBetween, iso } from "../lib/dates";
 

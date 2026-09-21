@@ -7,28 +7,13 @@
    generator becomes *one* implementation of an interface rather than the only
    possible shape of the app's data.
 =========================================================================== */
-import type {
-  Cell,
-  Coverage,
-  DataSource,
-  PublicCampaign,
-  SummableMetric,
-  TargetSpec,
-} from "./schema";
+import type { Coverage, DataSource, PublicCampaign, SummableMetric } from "./schema";
+import { compileTarget } from "./target";
 import { CELLS, PROVINCES, GRADES, SUBJECTS } from "./segments";
 import { CAMPAIGNS, RELEASES } from "./campaigns";
 import { generate, buildPanel } from "./generate";
 import { TODAY, START, provisioned } from "./calendar";
 import { daysBetween } from "../lib/dates";
-
-/** Compile a serializable target description into a cell predicate. An absent
-    or empty dimension matches every value of it. */
-export function compileTarget(spec: TargetSpec): (c: Cell) => boolean {
-  const has = (list: string[] | undefined, v: string): boolean =>
-    !list || list.length === 0 || list.includes(v);
-  return (c) =>
-    has(spec.province, c.province) && has(spec.grade, c.grade) && has(spec.subject, c.subject);
-}
 
 /** Every summable metric the generator produces. */
 const ALL_METRICS: SummableMetric[] = [

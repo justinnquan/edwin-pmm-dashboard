@@ -14,6 +14,7 @@ const ActivityTimeline = lazy(() => import("./pages/ActivityTimeline"));
 const CampaignCalendar = lazy(() => import("./pages/CampaignCalendar"));
 const AdoptionEngagement = lazy(() => import("./pages/AdoptionEngagement"));
 const Segments = lazy(() => import("./pages/Segments"));
+const DataImport = lazy(() => import("./pages/DataImport"));
 
 export default function App() {
   return (
@@ -28,6 +29,7 @@ export default function App() {
           <Route path="/adoption" element={<AdoptionEngagement />} />
           <Route path="/segments" element={<Segments />} />
           <Route path="/calendar" element={<CampaignCalendar />} />
+          <Route path="/data" element={<DataImport />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>

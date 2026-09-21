@@ -53,6 +53,12 @@ export const NAV: NavItem[] = [
     title: "Campaign Calendar",
     subtitle: "Campaigns and product events laid out on a calendar.",
   },
+  {
+    label: "Data Import",
+    path: "/data",
+    title: "Data Import",
+    subtitle: "Load a real Edwin export and see exactly what it can support.",
+  },
 ];
 
 /** Longest-prefix match so /campaign/:id resolves to the Campaign Impact item. */

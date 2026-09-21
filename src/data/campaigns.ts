@@ -6,7 +6,7 @@
 =========================================================================== */
 import type { Cell, CampaignDef, Metric, Release } from "./schema";
 import { daysBetween, fromIso } from "../lib/dates";
-import { compileTarget } from "./synthetic";
+import { compileTarget } from "./target";
 
 /** Targets the whole platform. */
 const ALL = {};

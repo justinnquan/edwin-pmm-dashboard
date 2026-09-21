@@ -1,0 +1,332 @@
+/* ===========================================================================
+   /pages — DATA IMPORT
+   Drop real CSV exports in, see exactly what they can and cannot support,
+   then swap the dashboard onto them.
+
+   The validation report is the point of this page, not the upload. A PMM
+   handing an export to this screen should learn, before anything renders,
+   whether there is enough history for a seasonal baseline, which metrics are
+   absent, and whether campaign reach exists — rather than discovering it from
+   a dashboard full of empty states.
+
+   Files never leave the browser. Nothing is uploaded, committed, or deployed,
+   which matters because this repository is public.
+=========================================================================== */
+import { useState } from "react";
+import { T } from "../theme/tokens";
+import { Card, Chip } from "../components/primitives";
+import { useDataSource } from "../state/dataStore";
+import { TABLES, templateFor, type TableSpec } from "../data/file/schema";
+import {
+  buildFileSource,
+  HISTORY_NEEDED,
+  type ValidationReport,
+  type Severity,
+  type InputFiles,
+} from "../data/file/load";
+import { DAILY_FACTS, CAMPAIGNS_TABLE, CAMPAIGN_REACH, RELEASES_TABLE } from "../data/file/schema";
+import { saveImport, clearImport } from "../data/file/persist";
+import { int } from "../analytics/format";
+import { METRIC_LABEL } from "../analytics/constants";
+
+const TONE: Record<Severity, { color: string; label: string }> = {
+  error: { color: T.warn, label: "Blocking" },
+  warning: { color: "#B7791F", label: "Limitation" },
+  info: { color: T.soft, label: "Note" },
+};
+
+function download(name: string, text: string) {
+  const url = URL.createObjectURL(new Blob([text], { type: "text/csv;charset=utf-8" }));
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = name;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function TableCard({ spec, file, onPick }: { spec: TableSpec; file?: File; onPick: (f?: File) => void }) {
+  return (
+    <Card className="p-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <code className="text-sm font-bold" style={{ color: T.navy }}>
+            {spec.file}
+          </code>
+          <Chip tone={spec.required ? "warn" : "muted"}>{spec.required ? "Required" : "Optional"}</Chip>
+          {file && <Chip tone="good">{file.name}</Chip>}
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => download(spec.file, templateFor(spec))}
+            className="rounded px-2 py-1 text-xs font-semibold"
+            style={{ color: T.blue, border: `1px solid ${T.blue}55`, background: T.surface }}
+          >
+            Download template
+          </button>
+          <label
+            className="rounded px-2 py-1 text-xs font-semibold cursor-pointer"
+            style={{ color: T.surface, background: T.blue }}
+          >
+            Choose file
+            <input
+              type="file"
+              accept=".csv,text/csv"
+              className="hidden"
+              onChange={(e) => onPick(e.target.files?.[0])}
+            />
+          </label>
+        </div>
+      </div>
+      <p className="mt-2 text-xs" style={{ color: T.soft, lineHeight: 1.6 }}>
+        <b style={{ color: T.ink }}>{spec.grain}</b> {spec.purpose}
+      </p>
+      <details className="mt-2">
+        <summary className="text-xs cursor-pointer" style={{ color: T.blue }}>
+          {spec.columns.length} columns
+        </summary>
+        <ul className="mt-2 flex flex-col gap-1.5">
+          {spec.columns.map((c) => (
+            <li key={c.name} className="text-xs" style={{ color: T.soft, lineHeight: 1.5 }}>
+              <code style={{ color: T.ink, fontWeight: 700 }}>{c.name}</code>
+              {!c.required && <span style={{ color: T.muted }}> · optional</span>} — {c.why}
+            </li>
+          ))}
+        </ul>
+      </details>
+    </Card>
+  );
+}
+
+function Report({ report, raw }: { report: ValidationReport; raw: InputFiles | null }) {
+  const s = report.summary;
+  const swap = useDataSource((x) => x.swap);
+  const [swapped, setSwapped] = useState(false);
+  const [persistWarning, setPersistWarning] = useState<string | null>(null);
+
+  return (
+    <div className="flex flex-col gap-4">
+      <Card className="p-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-sm font-extrabold uppercase" style={{ color: T.navy, letterSpacing: "0.07em" }}>
+            Validation report
+          </h2>
+          <Chip tone={report.usable ? (s.canAdjust ? "good" : "warn") : "warn"}>
+            {!report.usable
+              ? "Cannot load"
+              : s.canAdjust
+              ? "Ready — seasonal adjustment available"
+              : "Loads, but no seasonal baseline"}
+          </Chip>
+        </div>
+
+        {report.usable && (
+          <div
+            className="mt-4 grid gap-4"
+            style={{ gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))" }}
+          >
+            {[
+              ["Rows", int(s.rows)],
+              ["Date range", s.dateFrom && s.dateTo ? `${s.dateFrom} → ${s.dateTo}` : "—"],
+              ["History", `${int(s.historyDays)} days`],
+              ["Segments", int(s.cells)],
+              ["Campaigns", int(s.campaigns)],
+              ["Missing days", int(s.missingDates)],
+            ].map(([k, v]) => (
+              <div key={k}>
+                <div className="text-xs uppercase" style={{ color: T.muted, letterSpacing: "0.06em" }}>
+                  {k}
+                </div>
+                <div className="text-lg font-extrabold" style={{ color: T.ink }}>
+                  {v}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {report.usable && !s.canAdjust && (
+          <div
+            className="mt-4 rounded p-3 text-xs"
+            style={{ border: `1px solid ${T.warn}55`, background: `${T.warn}0D`, lineHeight: 1.6 }}
+          >
+            <b style={{ color: T.warn }}>No seasonal baseline.</b> The dashboard compares each period
+            against the same calendar window a year earlier, so it needs {HISTORY_NEEDED} days of
+            history and this file has {int(s.historyDays)}. It will load, but every seasonally-adjusted
+            figure will report no baseline and you will see raw levels only — which for K-12 data means
+            September will look like a triumph and July like a collapse, regardless of what marketing
+            did. Getting the full history is the highest-value thing to ask for.
+          </div>
+        )}
+
+        {report.usable && s.metricsMissing.length > 0 && (
+          <p className="mt-3 text-xs" style={{ color: T.soft, lineHeight: 1.6 }}>
+            <b style={{ color: T.ink }}>Metrics unavailable:</b>{" "}
+            {s.metricsMissing
+              .map((m) => METRIC_LABEL[m as keyof typeof METRIC_LABEL] ?? m)
+              .join(", ")}
+            . Views that depend on them will show a not-tracked state rather than a zero.
+          </p>
+        )}
+      </Card>
+
+      {report.findings.length > 0 && (
+        <Card className="p-5">
+          <h3 className="text-xs font-extrabold uppercase" style={{ color: T.navy, letterSpacing: "0.06em" }}>
+            {report.findings.length} finding{report.findings.length === 1 ? "" : "s"}
+          </h3>
+          <ul className="mt-3 flex flex-col gap-3">
+            {report.findings.map((f, i) => (
+              <li key={i} style={{ borderLeft: `3px solid ${TONE[f.severity].color}`, paddingLeft: 10 }}>
+                <div className="flex items-center gap-2">
+                  <span
+                    className="text-xs font-bold uppercase"
+                    style={{ color: TONE[f.severity].color, letterSpacing: "0.05em" }}
+                  >
+                    {TONE[f.severity].label}
+                  </span>
+                  <code className="text-xs" style={{ color: T.muted }}>
+                    {f.file}
+                  </code>
+                </div>
+                <div className="text-sm font-semibold mt-0.5" style={{ color: T.ink, lineHeight: 1.45 }}>
+                  {f.message}
+                </div>
+                {f.action && (
+                  <div className="text-xs mt-0.5" style={{ color: T.soft, lineHeight: 1.55 }}>
+                    {f.action}
+                  </div>
+                )}
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
+
+      {report.usable && report.source && (
+        <Card className="p-5">
+          <button
+            onClick={() => {
+              swap(report.source!);
+              setSwapped(true);
+              if (raw) {
+                const r = saveImport(raw);
+                setPersistWarning(r.ok ? null : r.reason ?? null);
+              }
+            }}
+            className="rounded px-4 py-2 text-sm font-bold"
+            style={{ color: T.surface, background: swapped ? T.good : T.blue }}
+          >
+            {swapped ? "Dashboard is using this data" : "Use this data in the dashboard"}
+          </button>
+          <p className="mt-2 text-xs" style={{ color: T.soft, lineHeight: 1.6 }}>
+            Swapping replaces the synthetic generator everywhere at once. The gate thresholds
+            (minimum sample and activity volume) were calibrated against synthetic magnitudes, so
+            expect to re-tune them against the real noise floor before trusting any verdict.
+          </p>
+          {persistWarning && (
+            <p className="mt-2 text-xs" style={{ color: T.warn, lineHeight: 1.6 }}>
+              {persistWarning}
+            </p>
+          )}
+        </Card>
+      )}
+    </div>
+  );
+}
+
+export default function DataImport() {
+  const [files, setFiles] = useState<Record<string, File | undefined>>({});
+  const [report, setReport] = useState<ValidationReport | null>(null);
+  // Keep the raw text so a successful import can be persisted for the session.
+  const [raw, setRaw] = useState<InputFiles | null>(null);
+  const [busy, setBusy] = useState(false);
+  const { sourceId, label, reset } = useDataSource();
+
+  const ready = TABLES.filter((t) => t.required).every((t) => files[t.file]);
+
+  return (
+    <div className="flex flex-col gap-4">
+      <Card className="p-5">
+        <h2 className="text-sm font-extrabold uppercase" style={{ color: T.navy, letterSpacing: "0.07em" }}>
+          Current source
+        </h2>
+        <div className="mt-2 flex flex-wrap items-center gap-3">
+          <span className="text-lg font-extrabold" style={{ color: T.ink }}>
+            {label}
+          </span>
+          {sourceId !== "synthetic" && (
+            <button
+              onClick={() => {
+                clearImport();
+                reset();
+                setReport(null);
+                setRaw(null);
+                setFiles({});
+              }}
+              className="rounded px-2 py-1 text-xs font-semibold"
+              style={{ color: T.blue, border: `1px solid ${T.blue}55`, background: T.surface }}
+            >
+              Revert to synthetic
+            </button>
+          )}
+        </div>
+        <p className="mt-2 text-xs" style={{ color: T.soft, lineHeight: 1.6 }}>
+          Files are read in your browser and never uploaded, committed, or deployed. This repository is
+          public, so real Edwin numbers must not be added to it — importing here keeps them on your
+          machine. A successful import is kept in this tab's session storage, so it survives a reload
+          and is discarded when you close the tab.
+        </p>
+      </Card>
+
+      {TABLES.map((t) => (
+        <TableCard
+          key={t.file}
+          spec={t}
+          file={files[t.file]}
+          onPick={(f) => {
+            setFiles((prev) => ({ ...prev, [t.file]: f }));
+            setReport(null);
+          }}
+        />
+      ))}
+
+      <div className="flex items-center gap-3">
+        <button
+          disabled={!ready || busy}
+          onClick={async () => {
+            setBusy(true);
+            try {
+              const read = async (f?: File) => (f ? await f.text() : undefined);
+              const input: InputFiles = {
+                dailyFacts: await read(files[DAILY_FACTS.file]),
+                campaigns: await read(files[CAMPAIGNS_TABLE.file]),
+                reach: await read(files[CAMPAIGN_REACH.file]),
+                releases: await read(files[RELEASES_TABLE.file]),
+                label: "Imported CSV",
+              };
+              setRaw(input);
+              setReport(buildFileSource(input));
+            } finally {
+              setBusy(false);
+            }
+          }}
+          className="rounded px-4 py-2 text-sm font-bold"
+          style={{
+            color: T.surface,
+            background: ready && !busy ? T.blue : T.muted,
+            cursor: ready && !busy ? "pointer" : "not-allowed",
+          }}
+        >
+          {busy ? "Validating…" : "Validate"}
+        </button>
+        {!ready && (
+          <span className="text-xs" style={{ color: T.muted }}>
+            daily_facts.csv and campaigns.csv are both required.
+          </span>
+        )}
+      </div>
+
+      {report && <Report report={report} raw={raw} />}
+    </div>
+  );
+}
