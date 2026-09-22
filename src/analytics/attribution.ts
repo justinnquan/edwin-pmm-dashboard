@@ -7,7 +7,7 @@
 import type { PublicCampaign, CampaignImpact, SummableMetric } from "../data/schema";
 import { src } from "../data/source";
 import { addDays, daysBetween, fromIso } from "../lib/dates";
-import { MIN_N, MIN_DAILY_ACTIVE, MATERIALITY, CONFIDENCE_Z } from "./constants";
+import { MIN_N, MIN_DAILY_ACTIVE, WAU_TO_DAILY, MATERIALITY, CONFIDENCE_Z } from "./constants";
 import { windowMean, windowStats, adjustedSE } from "./kpis";
 
 /** Distinct teachers exposed to at least one of these campaigns, within the
@@ -51,11 +51,20 @@ export function campaignImpact(
 
   // Activity-volume gate: low daily volume makes the comparison unstable even
   // when the exposed teacher count passes MIN_N.
-  const activePre = windowMean("dailyActive", targetIds, addDays(launch, -1), windowDays);
-  const activePost = windowMean("dailyActive", targetIds, addDays(launch, windowDays), windowDays);
+  // The volume gate normally reads daily actives. A source without that column
+  // fills zeros, not nulls, so the gate would fire for every campaign and every
+  // metric — including one whose objective is the single metric that IS
+  // present. Fall back to weekly actives at a proportionate floor instead:
+  // MIN_DAILY_ACTIVE is a per-day level, and a rolling 7-day distinct count of
+  // the same population is larger, so the floor scales with it.
+  const hasDaily = src().coverage.metrics.dailyActive;
+  const gateMetric: SummableMetric = hasDaily ? "dailyActive" : "wau";
+  const floor = hasDaily ? MIN_DAILY_ACTIVE : MIN_DAILY_ACTIVE * WAU_TO_DAILY;
+  const activePre = windowMean(gateMetric, targetIds, addDays(launch, -1), windowDays);
+  const activePost = windowMean(gateMetric, targetIds, addDays(launch, windowDays), windowDays);
   if (activePre == null || activePost == null) return { state: "no-baseline", n };
   const active = Math.min(activePre, activePost);
-  if (active < MIN_DAILY_ACTIVE) return { state: "insufficient-volume", n, active };
+  if (active < floor) return { state: "insufficient-volume", n, active };
 
   const sPost = windowStats(metric, targetIds, addDays(launch, windowDays), windowDays);
   const sPre = windowStats(metric, targetIds, addDays(launch, -1), windowDays);

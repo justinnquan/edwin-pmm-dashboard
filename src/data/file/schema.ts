@@ -35,23 +35,33 @@ export const DAILY_FACTS: TableSpec = {
   purpose:
     "Everything on the dashboard. Thirteen or more months of it makes the seasonal baseline possible, which is the whole value proposition.",
   columns: [
-    { name: "date", required: true, kind: "date", why: "ISO YYYY-MM-DD, interpreted as UTC." },
-    { name: "province", required: true, kind: "text", why: "Must match the dimension vocabulary exactly." },
-    { name: "grade", required: true, kind: "text", why: "Must match the dimension vocabulary exactly." },
-    { name: "subject", required: true, kind: "text", why: "Must match the dimension vocabulary exactly." },
+    {
+      name: "date",
+      required: true,
+      kind: "date",
+      why: "ISO YYYY-MM-DD, interpreted as UTC. Use a week_starting column instead if the export is weekly — the loader detects the grain and reports which it found.",
+    },
+    {
+      name: "province",
+      required: false,
+      kind: "text",
+      why: "Must match the vocabulary used in campaigns.csv. Omit all three segment columns for a platform-wide export; segment views then report that this source carries no segmentation.",
+    },
+    { name: "grade", required: false, kind: "text", why: "Segment key. See province." },
+    { name: "subject", required: false, kind: "text", why: "Segment key. See province." },
     {
       name: "provisioned",
-      required: true,
+      required: false,
       kind: "number",
       metric: "provisioned",
-      why: "The denominator for the north-star active teacher rate, and the rescale for year-over-year comparison. Without it no rate on the dashboard is trustworthy.",
+      why: "Teachers holding a licence on that date — a stock, not a running total. The denominator for the north-star rate and the year-over-year rescale. A cumulative 'ever logged in' count is NOT a substitute: it never sheds anyone, so every rate built on it declines regardless of behaviour. Supply that as a cumulative_logins column instead and it will be charted rather than divided by.",
     },
     {
       name: "daily_active",
-      required: true,
+      required: false,
       kind: "number",
       metric: "dailyActive",
-      why: "Drives the activity-volume gate that stops low-volume windows being compared.",
+      why: "Drives the activity-volume gate that stops low-volume windows being compared. If absent the gate falls back to weekly actives — it is never synthesised from a weekly figure, because dividing a weekly distinct count by seven understates it and repeating it overstates it.",
     },
     {
       name: "wau",
@@ -89,6 +99,12 @@ export const DAILY_FACTS: TableSpec = {
       why: "Distinct teachers who created a class OR an assignment. Not derivable by adding the two columns above — the same teacher may do both.",
     },
     {
+      name: "cumulative_logins",
+      required: false,
+      kind: "number",
+      why: "Running total of distinct teachers who have ever logged in. Charted as an adoption curve; deliberately never used as a denominator, because a figure that never sheds anyone makes every rate built on it fall regardless of behaviour.",
+    },
+    {
       name: "retention_w4",
       required: false,
       kind: "rate",
@@ -108,6 +124,7 @@ export const DAILY_FACTS: TableSpec = {
     "18",
     "310",
     "486",
+    "",
     "0.51",
   ],
 };
@@ -128,6 +145,12 @@ export const CAMPAIGNS_TABLE: TableSpec = {
     { name: "opens", required: false, kind: "number", why: "Leave blank for channels with no open concept — in-app notifications and release notes. A blank suppresses CTOR rather than reporting a meaningless one." },
     { name: "clicks", required: true, kind: "number", why: "Numerator for CTR." },
     {
+      name: "recipients",
+      required: false,
+      kind: "number",
+      why: "Distinct people the campaign actually reached — Pardot's Total Delivered will do. Used only as the sample size that lets a result clear the minimum-N gate, and labelled as recipients rather than verified teachers, since without an identity join we cannot confirm they are the same people the product data counts.",
+    },
+    {
       name: "objective_metric",
       required: true,
       kind: "metric",
@@ -147,6 +170,7 @@ export const CAMPAIGNS_TABLE: TableSpec = {
     "27800",
     "13344",
     "2613",
+    "26910",
     "wau",
     "",
     "",

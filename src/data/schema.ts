@@ -151,12 +151,43 @@ export interface Coverage {
   metrics: Record<SummableMetric, boolean>;
   /** True when de-duplicated campaign reach is real rather than unavailable. */
   reach: boolean;
+
+  /** True when `reach` is a delivered-recipients count standing in for a real
+      teacher-level figure. Usable as a sample size, but the two populations
+      cannot be reconciled without an identity join, so it must be labelled as
+      recipients wherever it is shown. */
+  reachIsRecipients: boolean;
   /** True when provisioned seats are measured per cell rather than allocated
       from a population-level figure by segment weight. */
   perCellSeats: boolean;
   /** Days of history available. Below YOY_LAG + window, no seasonal baseline
       can be computed and every adjusted figure must degrade to unavailable. */
   historyDays: number;
+
+  /** True when `seatsOn` returns a genuine stock — teachers who hold a licence
+      right now — rather than a cumulative counter that only ever grows.
+
+      This gates real arithmetic, not copy. A cumulative "teachers who have ever
+      logged in" column looks like a denominator and is not one: it never sheds
+      anyone, so every rate built on it falls week after week no matter what
+      behaviour does, and the year-over-year rescale it feeds becomes nonsense.
+      When this is false, rates over seats are reported unavailable and the
+      rescale is skipped. */
+  seatsAreStock: boolean;
+
+  /** True when there is enough history for a prior-year comparison. When false
+      every seasonally-adjusted figure must be suppressed rather than shown
+      alongside a raw one, because a raw before/after in a K-12 product says
+      more about the month than about the campaign. */
+  canAdjust: boolean;
+
+  /** The grain the source was supplied at. Weekly data is step-expanded to
+      days, which drives the within-window variance to ~0 — so the uncertainty
+      band must be suppressed rather than printed as a falsely tiny "± 0.1%". */
+  grain: "daily" | "weekly";
+
+  /** How the seat figure should be described wherever it appears. */
+  seatsLabel: string;
 }
 
 export interface DataSource {

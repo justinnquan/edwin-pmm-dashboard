@@ -14,7 +14,7 @@ import { activationFunnel, activationGauges, featureAdoption, seatsOf } from "..
 import { useFilters } from "../state/filterStore";
 import { T } from "../theme/tokens";
 import { Card, Chip } from "../components/primitives";
-import { EmptyState } from "../components/states";
+import { EmptyState, Unavailable } from "../components/states";
 import { Funnel, Gauge, FeatureBars, MiniTrend } from "../components/AdoptionViz";
 import { KPI_INFO } from "../components/kpiInfo";
 import { int } from "../analytics/format";
@@ -67,23 +67,41 @@ export default function AdoptionEngagement() {
               Activation funnel
             </h2>
             <span className="text-xs" style={{ color: T.muted }}>
-              {int(model.seats)} provisioned
+              {model.seats == null ? "no licence count in this source" : `${int(model.seats)} provisioned`}
             </span>
           </div>
           <p className="mt-1 mb-4 text-xs" style={{ color: T.muted }}>
             Invited → First login → First resource → Class created → Assignment / student invited,
             mapped to Edwin's J1–J5 onboarding journeys.
           </p>
-          <Funnel stages={model.funnel.stages} />
+          {model.funnel.unavailable ? (
+            <Unavailable
+              title="Activation funnel unavailable"
+              detail={`Each stage below the first is modelled from event data — ${model.funnel.unavailable}. Rather than fall back to assumed conversion rates, which would render as measured percentages, the funnel is not drawn.`}
+            />
+          ) : (
+            <Funnel stages={model.funnel.stages} />
+          )}
         </Card>
 
         <div className="flex flex-col gap-4">
-          <Card className="p-5">
-            <Gauge gauge={model.gauges.day7} info={KPI_INFO.day7} />
-          </Card>
-          <Card className="p-5">
-            <Gauge gauge={model.gauges.monthly} info={KPI_INFO.monthly} />
-          </Card>
+          {model.gauges ? (
+            <>
+              <Card className="p-5">
+                <Gauge gauge={model.gauges.day7} info={KPI_INFO.day7} />
+              </Card>
+              <Card className="p-5">
+                <Gauge gauge={model.gauges.monthly} info={KPI_INFO.monthly} />
+              </Card>
+            </>
+          ) : (
+            <Card className="p-5">
+              <Unavailable
+                title="OKR gauges unavailable"
+                detail="Both gauges are shares of the licensed teacher population, and this source has no licence count. Provisioned seats per period would restore them — they are what the 70% Day-7 and 50% monthly-active OKRs are defined against."
+              />
+            </Card>
+          )}
         </div>
       </section>
 

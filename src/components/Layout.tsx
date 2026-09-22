@@ -10,8 +10,9 @@ import { Suspense, useState } from "react";
 import { Outlet, useLocation, NavLink } from "react-router-dom";
 import type { SummableMetric } from "../data/schema";
 import { src } from "../data/source";
-import { MIN_N, MATERIALITY, CONFIDENCE_Z, BASELINE_SMOOTH, YOY_LAG } from "../analytics/constants";
+import { MIN_N, MATERIALITY, CONFIDENCE_Z, BASELINE_SMOOTH } from "../analytics/constants";
 import { useDataSource } from "../state/dataStore";
+import { HISTORY_NEEDED } from "../data/file/load";
 import { fmtShort, iso } from "../lib/dates";
 import { pctAbs } from "../analytics/format";
 import { useFilters } from "../state/filterStore";
@@ -31,7 +32,10 @@ export function Layout() {
   // Read through src() rather than caching: the strip must describe whatever
   // source is active right now.
   const source = src();
-  const hasYoY = source.coverage.historyDays >= YOY_LAG + 7;
+  const hasYoY = source.coverage.canAdjust;
+  const dims = source.dimensions;
+  const unsegmented =
+    dims.province.length <= 1 && dims.grade.length <= 1 && dims.subject.length <= 1;
   const isPMM = view === "Product Marketing";
   const showTrendMetric = isPMM && pathname === "/";
   const [methodOpen, setMethodOpen] = useState(false);
@@ -116,24 +120,33 @@ export function Layout() {
             options={["30", "90", "180"]}
             onChange={(v) => update({ range: Number(v) })}
           />
-          <Select
-            label="Province"
-            value={province}
-            options={["All", "ON", "AB"]}
-            onChange={(v) => update({ province: v })}
-          />
-          <Select
-            label="Grade"
-            value={grade}
-            options={["All", ...src().dimensions.grade]}
-            onChange={(v) => update({ grade: v })}
-          />
-          <Select
-            label="Subject"
-            value={subject}
-            options={["All", ...src().dimensions.subject]}
-            onChange={(v) => update({ subject: v })}
-          />
+          {/* A dimension with a single value offers no choice, and rendering it
+              anyway invites selecting an option that empties the dashboard with
+              no explanation. Hidden entirely when the source is unsegmented. */}
+          {dims.province.length > 1 && (
+            <Select
+              label="Province"
+              value={province}
+              options={["All", ...dims.province]}
+              onChange={(v) => update({ province: v })}
+            />
+          )}
+          {dims.grade.length > 1 && (
+            <Select
+              label="Grade"
+              value={grade}
+              options={["All", ...dims.grade]}
+              onChange={(v) => update({ grade: v })}
+            />
+          )}
+          {dims.subject.length > 1 && (
+            <Select
+              label="Subject"
+              value={subject}
+              options={["All", ...dims.subject]}
+              onChange={(v) => update({ subject: v })}
+            />
+          )}
           <Select
             label="Attribution window"
             value={String(win)}
@@ -171,12 +184,30 @@ export function Layout() {
           {!hasYoY && (
             <span style={{ color: T.warn, fontWeight: 700 }}>
               No seasonal baseline — {source.coverage.historyDays} days of history, needs{" "}
-              {YOY_LAG + 7}
+              {HISTORY_NEEDED}
             </span>
           )}
-          {!source.coverage.perCellSeats && (
+          {!source.coverage.seatsAreStock && (
+            <span
+              style={{ color: T.warn, fontWeight: 700 }}
+              title="This source has no licensed-seat count, so rates over seats — including the north-star active teacher rate and both OKR gauges — cannot be computed."
+            >
+              No seat count — rates unavailable
+            </span>
+          )}
+          {source.coverage.seatsAreStock && !source.coverage.perCellSeats && (
             <span title="Provisioned seats are allocated to segments by population weight rather than measured per segment. Segment-level rates are therefore modelled.">
               <b style={{ color: T.navy }}>Denominator</b> modelled
+            </span>
+          )}
+          {source.coverage.grain === "weekly" && (
+            <span title="Rows arrive weekly and are expanded across their seven days, so day-of-week effects cannot be recovered and no uncertainty band is estimated.">
+              <b style={{ color: T.navy }}>Grain</b> weekly
+            </span>
+          )}
+          {unsegmented && (
+            <span title="This source carries no province, grade or subject breakdown, so every figure is platform-wide.">
+              <b style={{ color: T.navy }}>Scope</b> platform-wide
             </span>
           )}
           <span style={{ color: T.warn, fontWeight: 700 }}>Association, not causation</span>

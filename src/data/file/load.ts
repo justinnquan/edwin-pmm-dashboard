@@ -72,7 +72,7 @@ export const HISTORY_NEEDED = YOY_LAG + BASELINE_SMOOTH + 7;
 
 /* --- Parsing helpers ------------------------------------------------------- */
 
-type Row = Record<string, string>;
+export type Row = Record<string, string>;
 
 function parseCsv(text: string): Row[] {
   const out = Papa.parse<Row>(text.trim(), {
@@ -107,7 +107,32 @@ export interface InputFiles {
   reach?: string;
   releases?: string;
   label?: string;
+  /** Rows already parsed from a non-CSV source (a markdown table, a workbook).
+      Supplying these skips CSV parsing; the column names must still match the
+      contract in ./schema.ts, so every validation below applies unchanged. */
+  parsed?: {
+    facts?: Row[];
+    campaigns?: Row[];
+    reach?: Row[];
+    releases?: Row[];
+  };
 }
+
+/** Weekly rows are step-expanded to days. Which rule applies depends on
+    whether the figure is a level that already spans the week or a total
+    accumulated across it. Getting this backwards is a silent 7x error. */
+const WEEKLY_EXPANSION: Record<string, "repeat" | "divide"> = {
+  // Stocks, rolling counts and rates: the weekly figure *is* the daily level.
+  provisioned: "repeat",
+  cumulative_logins: "repeat",
+  wau: "repeat",
+  aha_users: "repeat",
+  retention_w4: "repeat",
+  // Flows: a total accumulated over seven days.
+  resource_opens: "divide",
+  classes_created: "divide",
+  assignments_created: "divide",
+};
 
 export function buildFileSource(files: InputFiles): ValidationReport {
   const findings: Finding[] = [];
@@ -142,15 +167,29 @@ export function buildFileSource(files: InputFiles): ValidationReport {
   }
 
   /* --- daily facts --------------------------------------------------------- */
-  const factRows = parseCsv(files.dailyFacts);
-  if (!factRows.length) {
+  const rawFacts = files.parsed?.facts ?? parseCsv(files.dailyFacts);
+  if (!rawFacts.length) {
     err(DAILY_FACTS.file, "Parsed zero rows.", "Check the file is comma-separated with a header row.");
     return { findings, usable: false, summary: empty };
   }
 
-  const headers = Object.keys(factRows[0]);
+  const headers = Object.keys(rawFacts[0]);
+
+  // Grain is detected, not declared: a week_starting column means each row
+  // covers seven days.
+  const weekly = !headers.includes("date") && headers.includes("week_starting");
+  const grain: "daily" | "weekly" = weekly ? "weekly" : "daily";
+  if (weekly) {
+    info(
+      DAILY_FACTS.file,
+      "Weekly grain detected. Each row is expanded across its seven days, so day-of-week effects cannot be recovered and the uncertainty band is suppressed rather than reported as falsely precise."
+    );
+  }
+
   for (const c of DAILY_FACTS.columns) {
-    if (c.required && !headers.includes(c.name)) {
+    if (!c.required) continue;
+    if (c.name === "date" && weekly) continue; // week_starting stands in
+    if (!headers.includes(c.name)) {
       err(DAILY_FACTS.file, `Required column "${c.name}" is missing.`, c.why);
     }
   }
@@ -158,12 +197,60 @@ export function buildFileSource(files: InputFiles): ValidationReport {
     return { findings, usable: false, summary: empty };
   }
 
+  // Normalise to a daily, fully-segmented row shape so everything downstream
+  // sees one form. Absent segment columns collapse to a single platform-wide
+  // cell rather than failing.
+  const segmented = headers.includes("province") || headers.includes("grade") || headers.includes("subject");
+  if (!segmented) {
+    warn(
+      DAILY_FACTS.file,
+      "No province, grade or subject columns, so this source is platform-wide.",
+      "Segment comparison, targeting and opportunity ranking all need a breakdown. Everything else works."
+    );
+  }
+
+  // A cumulative login count is not a denominator, but it is worth keeping as
+  // an adoption curve. Carry it in the seat field and let the stock check
+  // below decide what may be done with it.
+  const seatsFromCumulative = !headers.includes("provisioned") && headers.includes("cumulative_logins");
+
+  const factRows: Row[] = [];
+  for (const r of rawFacts) {
+    const base: Row = {
+      ...r,
+      province: r.province || "All",
+      grade: r.grade || "All",
+      subject: r.subject || "All",
+    };
+    if (seatsFromCumulative) base.provisioned = r.cumulative_logins;
+    if (!weekly) {
+      factRows.push(base);
+      continue;
+    }
+    const start = base.week_starting;
+    if (!ISO_RE.test(start ?? "")) {
+      factRows.push({ ...base, date: start });
+      continue;
+    }
+    const t0 = fromIso(start).getTime();
+    for (let d = 0; d < 7; d++) {
+      const day: Row = { ...base, date: new Date(t0 + d * 86400000).toISOString().slice(0, 10) };
+      for (const [col, rule] of Object.entries(WEEKLY_EXPANSION)) {
+        if (rule === "divide" && day[col] != null && day[col] !== "") {
+          day[col] = String(numOf(day[col]) / 7);
+        }
+      }
+      factRows.push(day);
+    }
+  }
+
   // Which optional metric columns are actually present.
   const metricsPresent: SummableMetric[] = [];
   const metricsMissing: SummableMetric[] = [];
   for (const c of DAILY_FACTS.columns) {
     if (!c.metric) continue;
-    if (headers.includes(c.name)) metricsPresent.push(c.metric);
+    const present = headers.includes(c.name) || (c.name === "provisioned" && seatsFromCumulative);
+    if (present) metricsPresent.push(c.metric);
     else {
       metricsMissing.push(c.metric);
       warn(
@@ -188,6 +275,14 @@ export function buildFileSource(files: InputFiles): ValidationReport {
     provinces.add(r.province);
     grades.add(r.grade);
     subjects.add(r.subject);
+  }
+  if (badDates && weekly) {
+    err(
+      DAILY_FACTS.file,
+      `${badDates.toLocaleString()} row(s) have a week_starting that is not YYYY-MM-DD.`,
+      "Dates must be ISO. A markdown table written as 'August 3, 2025' is converted on import; anything else must be reformatted."
+    );
+    return { findings, usable: false, summary: empty };
   }
   if (badDates) {
     err(
@@ -278,8 +373,8 @@ export function buildFileSource(files: InputFiles): ValidationReport {
   if (!canAdjust) {
     warn(
       DAILY_FACTS.file,
-      `Only ${historyDays} days of history. Seasonal adjustment needs ${HISTORY_NEEDED}.`,
-      "The dashboard will load, but every seasonally-adjusted figure will report no baseline and the trend will show raw levels only. This is the single most important thing to fix — the seasonal baseline is the dashboard's core claim."
+      `Only ${historyDays} days of history, so there is no prior year to compare against. Seasonal adjustment needs ${HISTORY_NEEDED}.`,
+      "Every adjusted figure is suppressed and the dashboard shows raw before/after only. In a K-12 product a raw comparison says more about the month than about the campaign — a November send flatters itself and a June send condemns itself. Supplying the previous school year is the single thing that makes these numbers arguable."
     );
   }
 
@@ -294,7 +389,7 @@ export function buildFileSource(files: InputFiles): ValidationReport {
   }
 
   /* --- campaigns ----------------------------------------------------------- */
-  const campRows = parseCsv(files.campaigns);
+  const campRows = files.parsed?.campaigns ?? parseCsv(files.campaigns);
   const campaigns: PublicCampaign[] = [];
   for (const r of campRows) {
     if (!ISO_RE.test(r.launch_date ?? "")) {
@@ -310,11 +405,17 @@ export function buildFileSource(files: InputFiles): ValidationReport {
       );
       continue;
     }
-    const spec: TargetSpec = {
-      province: listOf(r.target_province),
-      grade: listOf(r.target_grade),
-      subject: listOf(r.target_subject),
-    };
+    const spec: TargetSpec = segmented
+      ? {
+          province: listOf(r.target_province),
+          grade: listOf(r.target_grade),
+          subject: listOf(r.target_subject),
+        }
+      : // No segmentation in the usage data, so there is nothing for a target
+        // to select. Treating these as platform-wide keeps the campaign
+        // measurable; honouring the target would match no cell and suppress
+        // it entirely. The declared audience is preserved on the campaign.
+        {};
     const has = (list: string[] | undefined, v: string) => !list || !list.length || list.includes(v);
     const sends = numOf(r.sends);
     const opens = r.opens == null || r.opens === "" ? 0 : numOf(r.opens);
@@ -345,7 +446,18 @@ export function buildFileSource(files: InputFiles): ValidationReport {
     return { findings, usable: false, summary: empty };
   }
 
+  const targeted = campRows.filter(
+    (r) => r.target_province || r.target_grade || r.target_subject
+  ).length;
+  if (!segmented && targeted) {
+    info(
+      CAMPAIGNS_TABLE.file,
+      `${targeted} campaign(s) declare an audience, but the usage data is platform-wide, so every campaign is measured against the whole platform. The targeting is kept and will apply automatically once a segmented export arrives.`
+    );
+  }
+
   // Targeting values that match no segment would silently target nobody.
+  if (segmented)
   for (const c of campaigns) {
     const miss = [
       ...(c.targetSpec.province ?? []).filter((v) => !provinces.has(v)),
@@ -364,9 +476,29 @@ export function buildFileSource(files: InputFiles): ValidationReport {
   /* --- reach --------------------------------------------------------------- */
   const reachByCampaign = new Map<string, Map<number, number>>();
   let hasReach = false;
-  if (files.reach) {
-    for (const r of parseCsv(files.reach)) {
-      const id = cellKey.get(`${r.province}|${r.grade}|${r.subject}`);
+  let reachIsRecipients = false;
+
+  // A `recipients` column on the campaign itself is a coarser but far more
+  // obtainable stand-in for the reach table: Pardot's Total Delivered is one
+  // export away, whereas a per-cell teacher count needs the identity join.
+  // With a single platform-wide cell the two are equivalent in shape.
+  const withRecipients = campRows.filter((r) => r.recipients && numOf(r.recipients) > 0);
+  if (!files.reach && withRecipients.length) {
+    for (const r of withRecipients) {
+      reachByCampaign.set(r.campaign_id, new Map([[0, numOf(r.recipients)]]));
+    }
+    hasReach = true;
+    reachIsRecipients = true;
+    info(
+      CAMPAIGNS_TABLE.file,
+      `Using the recipients column as audience size for ${withRecipients.length} campaign(s). These are people a campaign was delivered to, not teachers confirmed present in the product data — without an identity join the two cannot be reconciled, so treat it as a sample size rather than a measured reach.`
+    );
+  }
+
+  const reachRows = files.parsed?.reach ?? (files.reach ? parseCsv(files.reach) : null);
+  if (reachRows) {
+    for (const r of reachRows) {
+      const id = cellKey.get(`${r.province || "All"}|${r.grade || "All"}|${r.subject || "All"}`);
       if (id == null) continue;
       let m = reachByCampaign.get(r.campaign_id);
       if (!m) {
@@ -376,19 +508,20 @@ export function buildFileSource(files: InputFiles): ValidationReport {
       m.set(id, numOf(r.reached_teachers));
     }
     hasReach = reachByCampaign.size > 0;
+    reachIsRecipients = false;
     if (!hasReach) warn(CAMPAIGN_REACH.file, "Parsed, but matched no known campaign or segment.");
-  } else {
+  } else if (!hasReach) {
     warn(
       CAMPAIGN_REACH.file,
-      "Not supplied, so no campaign has a known audience size.",
-      "Every campaign view will report insufficient sample. This table is what the email-to-user_id join produces — it is the highest-value thing to ask the data team for."
+      "Not supplied, and no recipients column on the campaigns, so no campaign has a known audience size.",
+      "Every campaign view will report insufficient sample. A recipients count per campaign — Pardot's Total Delivered — is enough to unlock them; a per-cell teacher count needs the email-to-user_id join."
     );
   }
 
   /* --- releases ------------------------------------------------------------ */
   const releases: Release[] = [];
   if (files.releases) {
-    for (const r of parseCsv(files.releases)) {
+    for (const r of files.parsed?.releases ?? parseCsv(files.releases)) {
       if (ISO_RE.test(r.date ?? "")) releases.push({ date: r.date, name: r.name });
     }
   } else {
@@ -418,6 +551,29 @@ export function buildFileSource(files: InputFiles): ValidationReport {
     return best ? seatsByDate.get(best) : undefined;
   };
 
+  // A stock rises and falls; a cumulative counter only ever rises. Deciding
+  // this from the data rather than trusting the column name is what stops a
+  // running total being silently used as a denominator.
+  const seatSeries = sortedDates.map((k) => (seatsByDate.get(k) ?? []).reduce((a, b) => a + b, 0));
+  const everFell = seatSeries.some((v, i) => i > 0 && v < seatSeries[i - 1] - 0.5);
+  const grew = seatSeries.length > 1 && seatSeries[seatSeries.length - 1] > seatSeries[0] * 1.5;
+  const hasSeats = metricsPresent.includes("provisioned");
+  const seatsAreStock = hasSeats && (everFell || !grew);
+
+  if (hasSeats && !seatsAreStock) {
+    warn(
+      DAILY_FACTS.file,
+      "The provisioned column never decreases and grows steeply, so it looks like a running total rather than a licence count.",
+      "It is being charted as an adoption curve, not divided by. A denominator that never sheds anyone makes every rate built on it fall week after week regardless of behaviour, and would distort the year-over-year comparison. Supply licensed seats to restore the active-teacher rate."
+    );
+  } else if (!hasSeats) {
+    warn(
+      DAILY_FACTS.file,
+      "No provisioned column, so the active-teacher rate cannot be computed.",
+      "Weekly active teachers still render as a count. Licensed seats per period are what turn that into the north-star rate and the 50% MAU OKR measure."
+    );
+  }
+
   const coverage: Coverage = {
     metrics: {
       provisioned: metricsPresent.includes("provisioned"),
@@ -430,8 +586,15 @@ export function buildFileSource(files: InputFiles): ValidationReport {
       retentionW4: metricsPresent.includes("retentionW4"),
     },
     reach: hasReach,
-    perCellSeats: true, // measured, not weight-allocated
+    reachIsRecipients,
+    // True only where seats are measured per cell. A platform-wide export has
+    // one cell, so there is nothing to allocate and nothing to caveat.
+    perCellSeats: hasSeats,
     historyDays,
+    seatsAreStock,
+    canAdjust,
+    grain,
+    seatsLabel: seatsAreStock ? "provisioned seats" : "teachers ever logged in",
   };
 
   const source: DataSource = {

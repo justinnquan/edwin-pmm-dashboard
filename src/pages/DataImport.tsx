@@ -26,6 +26,7 @@ import {
 } from "../data/file/load";
 import { DAILY_FACTS, CAMPAIGNS_TABLE, CAMPAIGN_REACH, RELEASES_TABLE } from "../data/file/schema";
 import { saveImport, clearImport } from "../data/file/persist";
+import { usageFromMarkdown, campaignsFromWorkbook } from "../data/file/edwin";
 import { int } from "../analytics/format";
 import { METRIC_LABEL } from "../analytics/constants";
 
@@ -234,6 +235,136 @@ function Report({ report, raw }: { report: ValidationReport; raw: InputFiles | n
   );
 }
 
+/* The two exports Product Marketing already keeps, loaded in the shape they
+   are actually kept in. Re-keying them into CSV every month is a step that
+   would eventually be skipped, and both formats are unambiguous enough to
+   read directly. */
+function EdwinImport({
+  onReport,
+}: {
+  onReport: (report: ValidationReport, raw: InputFiles) => void;
+}) {
+  const [usage, setUsage] = useState<File | undefined>();
+  const [book, setBook] = useState<File | undefined>();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const run = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      const parsedUsage = usage ? usageFromMarkdown(await usage.text()) : null;
+      if (usage && !parsedUsage) {
+        setError(
+          "No weekly table found in that file. It needs a markdown table with a week-start column and a weekly engaged/active teacher column."
+        );
+        return;
+      }
+      const parsedCamp = book ? await campaignsFromWorkbook(await book.arrayBuffer()) : null;
+
+      const input: InputFiles = {
+        dailyFacts: parsedUsage ? "edwin" : undefined,
+        campaigns: parsedCamp ? "edwin" : undefined,
+        parsed: {
+          facts: parsedUsage?.rows,
+          campaigns: parsedCamp?.campaigns,
+        },
+        label: "Edwin export",
+      };
+      onReport(buildFileSource(input), input);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not read those files.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const ready = !!usage && !!book;
+
+  return (
+    <Card className="p-5" style={{ borderColor: T.blue }}>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-sm font-extrabold uppercase" style={{ color: T.navy, letterSpacing: "0.07em" }}>
+          Load your Edwin exports
+        </h2>
+        <Chip tone="blue">No conversion needed</Chip>
+      </div>
+      <p className="mt-2 text-xs" style={{ color: T.soft, lineHeight: 1.6 }}>
+        Takes the two files as they are: the weekly usage rollup as a markdown table, and the
+        Pardot / YesWare / in-app workbook as .xlsx. Everything below this card is the generic CSV
+        route, for when a segmented export arrives from Power BI.
+      </p>
+
+      <div className="mt-4 flex flex-col gap-3">
+        {[
+          {
+            label: "Weekly usage rollup",
+            hint: "Edwin Metrics — markdown table with Week Starting and Weekly Engaged Teachers",
+            accept: ".md,.markdown,.txt,.csv",
+            file: usage,
+            set: setUsage,
+          },
+          {
+            label: "Campaign workbook",
+            hint: "Marketing Communications Metrics — Pardot, YesWare and in-app notification sheets",
+            accept: ".xlsx",
+            file: book,
+            set: setBook,
+          },
+        ].map((f) => (
+          <div key={f.label} className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <div className="text-sm font-semibold" style={{ color: T.ink }}>
+                {f.label} {f.file && <Chip tone="good">{f.file.name}</Chip>}
+              </div>
+              <div className="text-xs" style={{ color: T.muted }}>
+                {f.hint}
+              </div>
+            </div>
+            <label
+              className="rounded px-2 py-1 text-xs font-semibold cursor-pointer shrink-0"
+              style={{ color: T.surface, background: T.blue }}
+            >
+              Choose file
+              <input
+                type="file"
+                accept={f.accept}
+                className="hidden"
+                onChange={(e) => f.set(e.target.files?.[0])}
+              />
+            </label>
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-4 flex items-center gap-3">
+        <button
+          disabled={!ready || busy}
+          onClick={run}
+          className="rounded px-4 py-2 text-sm font-bold"
+          style={{
+            color: T.surface,
+            background: ready && !busy ? T.blue : T.muted,
+            cursor: ready && !busy ? "pointer" : "not-allowed",
+          }}
+        >
+          {busy ? "Reading…" : "Load and validate"}
+        </button>
+        {!ready && (
+          <span className="text-xs" style={{ color: T.muted }}>
+            Both files are needed.
+          </span>
+        )}
+      </div>
+      {error && (
+        <p className="mt-2 text-xs" style={{ color: T.warn, lineHeight: 1.6 }}>
+          {error}
+        </p>
+      )}
+    </Card>
+  );
+}
+
 export default function DataImport() {
   const [files, setFiles] = useState<Record<string, File | undefined>>({});
   const [report, setReport] = useState<ValidationReport | null>(null);
@@ -277,6 +408,17 @@ export default function DataImport() {
           and is discarded when you close the tab.
         </p>
       </Card>
+
+      <EdwinImport
+        onReport={(r, input) => {
+          setReport(r);
+          setRaw(input);
+        }}
+      />
+
+      <div className="text-xs font-bold uppercase mt-2" style={{ color: T.muted, letterSpacing: "0.08em" }}>
+        Or load generic CSV
+      </div>
 
       {TABLES.map((t) => (
         <TableCard

@@ -7,7 +7,7 @@ import type { Metric } from "../data/schema";
 import { src } from "../data/source";
 import { addDays, fmtShort } from "../lib/dates";
 import { MIN_N, METRIC_LABEL } from "./constants";
-import { adjustedChange } from "./kpis";
+import { adjustedChange, seatsIfStock } from "./kpis";
 import { campaignImpact, campaignsInWindow } from "./attribution";
 import { pct } from "./format";
 
@@ -82,7 +82,7 @@ export function buildInsights(
         (id) => cells[id].province === p && cells[id].grade === g
       );
       if (!segIds.length) continue;
-      const seats = src().seatsOn(src().asOf, segIds) ?? 0;
+      const seats = seatsIfStock(src().asOf, segIds) ?? 0;
       const ch = adjustedChange("classesCreated", segIds, src().asOf, 14);
       if (!ch) continue;
       if (seats < MIN_N) {

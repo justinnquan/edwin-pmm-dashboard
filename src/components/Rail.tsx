@@ -4,6 +4,7 @@
 import { NavLink } from "react-router-dom";
 import { T } from "../theme/tokens";
 import { NAV } from "./nav";
+import { src } from "../data/source";
 
 export function Rail() {
   return (
@@ -44,9 +45,9 @@ export function Rail() {
         className="mt-auto px-5 py-4 text-xs"
         style={{ color: "rgba(255,255,255,.35)", lineHeight: 1.6 }}
       >
-        Prototype · synthetic data
+        {src().id === "synthetic" ? "Prototype · synthetic data" : src().label}
         <br />
-        Phases C–G of 7
+        {src().id === "synthetic" ? "Phases C–G of 7" : "Real data"}
       </div>
     </nav>
   );

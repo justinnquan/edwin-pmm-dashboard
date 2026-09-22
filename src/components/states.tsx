@@ -49,3 +49,22 @@ export function PageLoading() {
     </div>
   );
 }
+
+/** A surface that cannot be drawn from the active source. Distinct from an
+    empty state: the data is not missing for this filter, it is absent from the
+    source entirely, and the reader needs to know which. */
+export function Unavailable({ title, detail }: { title: string; detail: string }) {
+  return (
+    <div
+      className="rounded p-4"
+      style={{ border: `1px dashed ${T.border}`, background: T.bg, lineHeight: 1.6 }}
+    >
+      <div className="text-sm font-semibold" style={{ color: T.soft }}>
+        {title}
+      </div>
+      <div className="mt-1 text-xs" style={{ color: T.muted }}>
+        {detail}
+      </div>
+    </div>
+  );
+}

@@ -8,6 +8,7 @@ import { useEffect, useRef } from "react";
 import { T } from "../theme/tokens";
 import { MIN_N, MIN_DAILY_ACTIVE, MATERIALITY, CONFIDENCE_Z, BASELINE_SMOOTH } from "../analytics/constants";
 import { pctAbs } from "../analytics/format";
+import { Provenance } from "./Provenance";
 
 const METHODS = [
   {
@@ -146,8 +147,7 @@ export function MethodologyModal({ open, onClose }: { open: boolean; onClose: ()
           </section>
 
           <p className="text-xs" style={{ color: T.muted, lineHeight: 1.6 }}>
-            Prototype on seeded synthetic data. Figures are illustrative and must not be quoted as Edwin
-            performance. Design tokens are a placeholder pending the Phia system.
+            <Provenance />
           </p>
         </div>
       </div>

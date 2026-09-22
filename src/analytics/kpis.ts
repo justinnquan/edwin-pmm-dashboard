@@ -8,6 +8,22 @@ import { src } from "../data/source";
 import { addDays, iso } from "../lib/dates";
 import { YOY_LAG, BASELINE_SMOOTH, MATERIALITY, CONFIDENCE_Z } from "./constants";
 
+/** Seats, but only where the source's seat figure is a genuine stock.
+
+    A cumulative "teachers who have ever logged in" column looks exactly like a
+    denominator and behaves nothing like one: it never sheds anyone, so every
+    rate built on it falls week after week no matter what behaviour does.
+    Against real Edwin data that column grew 63 → 10,220 in a year while weekly
+    engagement rose 37%, which as a rate reads as an 11-point decline. Returning
+    null here is what turns that into an honest "unavailable" instead. */
+export function seatsIfStock(date: Date, ids: number[]): number | null {
+  const s = src();
+  return s.coverage.seatsAreStock ? s.seatsOn(date, ids) : null;
+}
+
+/** True when the source has a prior year to compare against. */
+export const canAdjust = (): boolean => src().coverage.canAdjust;
+
 export function cellFilter(f: Filters): number[] {
   return src().cells.filter(
     (c) =>
@@ -46,10 +62,12 @@ function baselineOn(metric: SummableMetric, ids: number[], date: Date): number |
     const prior = addDays(cur, -YOY_LAG);
     const pv = sumOn(iso(prior), metric, ids);
     if (pv == null) continue;
-    // Rescale the prior year for seat growth. Where the source cannot answer
-    // for either date, compare like for like rather than inventing a ratio.
-    const now = src().seatsOn(cur, ids);
-    const then = src().seatsOn(prior, ids);
+    // Rescale the prior year for seat growth. Skipped entirely unless the
+    // source's seat figure is a stock: scaling by the growth of a cumulative
+    // counter would set this year's baseline at roughly twice what last year
+    // actually did, so every week would read as a collapse.
+    const now = seatsIfStock(cur, ids);
+    const then = seatsIfStock(prior, ids);
     const scale = now != null && then != null && then > 0 ? now / then : 1;
     vals.push(pv * scale);
   }
@@ -234,6 +252,11 @@ export function adjustedChange(
   endDate: Date,
   days: number
 ): AdjustedChange | null {
+  // With no prior year there is nothing to adjust against. Returning null is
+  // deliberate: a raw before/after presented beside adjusted figures would be
+  // read as one, and in a K-12 product that says more about the month than
+  // about the campaign.
+  if (!canAdjust()) return null;
   const sPost = windowStats(metric, ids, endDate, days);
   const sPre = windowStats(metric, ids, addDays(endDate, -days), days);
   const sBPost = windowStats(metric, ids, endDate, days, true);
@@ -250,7 +273,11 @@ export function adjustedChange(
   const adjusted = post / pre / (bPost / bPre) - 1;
   const se = adjustedSE(metric, ids, endDate, addDays(endDate, -days), days, adjusted);
   if (se == null) return null;
-  const threshold = Math.max(MATERIALITY, CONFIDENCE_Z * se);
+  // Step-expanded weekly rows carry no within-week variation, so the estimated
+  // error collapses to ~0 and would print as a falsely precise "± 0.1%". Fall
+  // back to the flat floor and let the UI omit the band.
+  const weekly = src().coverage.grain === "weekly";
+  const threshold = weekly ? MATERIALITY : Math.max(MATERIALITY, CONFIDENCE_Z * se);
   return { raw, expected, adjusted, post, pre, se, threshold, material: Math.abs(adjusted) >= threshold };
 }
 
@@ -265,7 +292,7 @@ export function seatWeightedRate(
   days: number
 ): number | null {
   const seatsById = new Map<number, number>(
-    ids.map((id) => [id, src().seatsOn(endDate, [id]) ?? 0])
+    ids.map((id) => [id, seatsIfStock(endDate, [id]) ?? 0])
   );
   const totalSeats = ids.reduce((s, id) => s + (seatsById.get(id) ?? 0), 0);
   if (totalSeats <= 0) return null;

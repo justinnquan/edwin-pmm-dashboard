@@ -53,11 +53,19 @@ export function createSyntheticSource(): DataSource {
   const coverage: Coverage = {
     metrics: Object.fromEntries(ALL_METRICS.map((m) => [m, true])) as Coverage["metrics"],
     reach: true,
+    reachIsRecipients: false,
     // The generator allocates seats to cells by segment weight rather than
     // measuring them, which is exactly what a real aggregate export is likely
     // to do as well. Flagged so the UI can say so.
     perCellSeats: false,
     historyDays: daysBetween(START, TODAY),
+    // The generator's seat curve is a licence count that steps at the school
+    // year — a genuine stock — and it spans two years, so the synthetic path
+    // keeps every behaviour the real-data flags exist to switch off.
+    seatsAreStock: true,
+    canAdjust: true,
+    grain: "daily",
+    seatsLabel: "provisioned seats",
   };
 
   return {

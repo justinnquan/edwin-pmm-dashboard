@@ -19,6 +19,7 @@ import { Card } from "../components/primitives";
 import { EmptyState } from "../components/states";
 import { KpiCard } from "../components/KpiCard";
 import { KPI_INFO } from "../components/kpiInfo";
+import { Provenance } from "../components/Provenance";
 import { InsightStrip } from "../components/InsightStrip";
 import { TrendChart } from "../components/TrendChart";
 import { ImpactRow } from "../components/DrillPanel";
@@ -38,15 +39,23 @@ export default function ExecutiveOverview() {
     const from = addDays(src().asOf, -range);
     const series = seriesFor(metric, ids, from, src().asOf);
 
+    const cov = src().coverage;
     const seats = seatsOf(ids);
     const wauNow = windowMean("wau", ids, src().asOf, 7);
-    const activeRate = wauNow != null ? wauNow / seats : null;
+    // Null seats means the source has no licence count, so there is no rate to
+    // report. Dividing by whatever else is to hand would produce a confident
+    // figure answering a different question.
+    const activeRate = wauNow != null && seats != null && seats > 0 ? wauNow / seats : null;
 
     const wauCh = adjustedChange("wau", ids, src().asOf, 7);
-    const ahaNow = windowMean("ahaUsers", ids, src().asOf, 7);
+    // A metric the source does not carry reads as 0, and 0 renders as a
+    // confident "0%" rather than a dash. Check presence before the arithmetic.
+    const ahaNow = cov.metrics.ahaUsers ? windowMean("ahaUsers", ids, src().asOf, 7) : null;
     const ahaRate = ahaNow != null && wauNow ? ahaNow / wauNow : null;
     const ahaCh = adjustedChange("ahaUsers", ids, src().asOf, 14);
-    const ret = seatWeightedRate("retentionW4", ids, src().asOf, 7);
+    const ret = cov.metrics.retentionW4
+      ? seatWeightedRate("retentionW4", ids, src().asOf, 7)
+      : null;
     const resCh = adjustedChange("resourceOpens", ids, src().asOf, 14);
 
     const recent = campaignsInWindow(30);
@@ -111,7 +120,11 @@ export default function ExecutiveOverview() {
           unit="%"
           raw={pct(model.wauCh?.raw)}
           adjusted={model.wauCh?.adjusted}
-          note={`${int(model.wauNow)} of ${int(model.seats)} provisioned · target 50%`}
+          note={
+            model.activeRate == null
+              ? "Needs a licensed-seat count. This source has none, so the rate — and the 50% MAU OKR measure — cannot be computed."
+              : `${int(model.wauNow)} of ${int(model.seats)} provisioned · target 50%`
+          }
         />
         <KpiCard
           label="Weekly active teachers"
@@ -128,14 +141,22 @@ export default function ExecutiveOverview() {
           unit="%"
           raw={pct(model.ahaCh?.raw)}
           adjusted={model.ahaCh?.adjusted}
-          note="Active teachers creating a class or assignment"
+          note={
+            model.ahaRate == null
+              ? "Needs a count of teachers creating a class or assignment. Not in this source."
+              : "Active teachers creating a class or assignment"
+          }
         />
         <KpiCard
           label="4-week retention"
           info={KPI_INFO.retention}
           value={model.ret == null ? "—" : (model.ret * 100).toFixed(0)}
           unit="%"
-          note="Share of a cohort still active after 4 weeks"
+          note={
+            model.ret == null
+              ? "Needs a cohort retention rate. Not in this source."
+              : "Share of a cohort still active after 4 weeks"
+          }
         />
         <KpiCard
           caveat
@@ -143,9 +164,11 @@ export default function ExecutiveOverview() {
           info={KPI_INFO.campaignAssociated}
           value={model.assoc == null ? "—" : pct(model.assoc)}
           note={
-            model.assoc == null
-              ? "No campaign has a complete attribution window yet"
-              : "Exposure-weighted change on each campaign's objective vs. baseline"
+            model.assoc != null
+              ? "Exposure-weighted change on each campaign's objective vs. baseline"
+              : !src().coverage.canAdjust
+              ? "Needs a prior year to compare against. Without one nothing can be seasonally adjusted."
+              : "No campaign has a complete attribution window yet"
           }
         />
       </section>
@@ -280,9 +303,8 @@ export default function ExecutiveOverview() {
         </Card>
       )}
 
-      <footer className="pb-2 text-xs" style={{ color: T.muted, lineHeight: 1.7 }}>
-        Prototype on seeded synthetic data. Figures are illustrative and must not be quoted as Edwin
-        performance. Design tokens are a placeholder pending the Phia system.
+      <footer className="pb-2">
+        <Provenance />
       </footer>
     </div>
   );

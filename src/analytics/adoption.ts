@@ -12,17 +12,25 @@
 import type { SummableMetric } from "../data/schema";
 import { src } from "../data/source";
 import { addDays, iso } from "../lib/dates";
-import { sumOn, windowMean } from "./kpis";
+import { sumOn, windowMean, seatsIfStock } from "./kpis";
 
 export const DAY7_TARGET = 0.7; // Day-7 activation OKR
 export const MONTHLY_TARGET = 0.5; // monthly LMS-active OKR
 
 const clamp = (v: number, lo: number, hi: number): number => Math.max(lo, Math.min(hi, v));
 
-/** Seats (provisioned teachers) in the selected segment, as of today. */
-export function seatsOf(ids: number[]): number {
-  return src().seatsOn(src().asOf, ids) ?? 0;
+/** Seats in the selected segment as of today, or null where the source has no
+    genuine licence count. Null rather than 0 so callers report "unavailable"
+    instead of dividing by a number that is not a denominator. */
+export function seatsOf(ids: number[]): number | null {
+  return seatsIfStock(src().asOf, ids);
 }
+
+/** Whether a metric exists in the active source at all. A metric that is
+    absent reads as zero everywhere downstream, and a zero renders as a
+    confident "0.0%" rather than a dash — so this has to be checked before the
+    arithmetic, not after. */
+const has = (m: SummableMetric): boolean => src().coverage.metrics[m];
 
 /** Events per active teacher over a trailing window: total metric flow divided
     by the mean daily active count. Feeds a zero-truncated-Poisson reach. */
@@ -50,12 +58,15 @@ const reachFrom = (lambda: number | null): number =>
   lambda == null ? 0 : 1 - Math.exp(-lambda);
 
 /** Weekly-active share, and the monthly reach implied by four independent weeks. */
-function activeShares(ids: number[]): { seats: number; wauRate: number; monthly: number } {
+function activeShares(
+  ids: number[]
+): { seats: number | null; wau: number; wauRate: number | null; monthly: number | null } {
   const seats = seatsOf(ids);
   const wau = windowMean("wau", ids, src().asOf, 7) ?? 0;
-  const wauRate = seats > 0 ? clamp(wau / seats, 0, 0.95) : 0;
+  if (seats == null || seats <= 0) return { seats, wau, wauRate: null, monthly: null };
+  const wauRate = clamp(wau / seats, 0, 0.95);
   const monthly = clamp(1 - Math.pow(1 - wauRate, 4), 0, 0.98);
-  return { seats, wauRate, monthly };
+  return { seats, wau, wauRate, monthly };
 }
 
 export interface FunnelStage {
@@ -68,8 +79,26 @@ export interface FunnelStage {
 }
 
 /* --- Activation funnel: Invited → login → resource → class → assignment ----- */
-export function activationFunnel(ids: number[]): { seats: number; stages: FunnelStage[] } {
+export function activationFunnel(
+  ids: number[]
+): { seats: number | null; stages: FunnelStage[]; unavailable: string | null } {
   const { seats, monthly } = activeShares(ids);
+
+  // Every stage below the first is modelled from an event metric. Where those
+  // are absent the clamps below would floor a zero into a plausible-looking
+  // constant — 70%, 2%, 35% — and render it as if measured. Refusing to draw
+  // the funnel at all is the only honest option.
+  const needed: SummableMetric[] = ["resourceOpens", "classesCreated", "assignmentsCreated"];
+  const missing = needed.filter((m) => !has(m));
+  if (missing.length || !has("dailyActive") || seats == null || monthly == null) {
+    const why =
+      seats == null
+        ? "a licence count is needed for the invited population, and this source has none"
+        : !has("dailyActive")
+        ? "daily active teachers are needed to model each conversion, and this source has none"
+        : `${missing.join(", ")} ${missing.length === 1 ? "is" : "are"} not in this source`;
+    return { seats, stages: [], unavailable: why };
+  }
 
   // Modelled conversions (monotonic). Resource use is near-universal among the
   // active; class creation is the real bottleneck; assignment/student-invite is
@@ -99,7 +128,7 @@ export function activationFunnel(ids: number[]): { seats: number; stages: Funnel
     shareOfTop: invited > 0 ? counts[i] / invited : 0,
     shareOfPrev: i === 0 ? 1 : counts[i - 1] > 0 ? counts[i] / counts[i - 1] : 0,
   }));
-  return { seats, stages };
+  return { seats, stages, unavailable: null };
 }
 
 /* --- OKR gauges ------------------------------------------------------------ */
@@ -110,8 +139,13 @@ export interface Gauge {
   sublabel: string;
 }
 
-export function activationGauges(ids: number[]): { day7: Gauge; monthly: Gauge } {
+export function activationGauges(ids: number[]): { day7: Gauge; monthly: Gauge } | null {
   const { wauRate, monthly } = activeShares(ids);
+  // Both gauges are shares of the licensed population. Without a licence count
+  // there is no denominator and no gauge — the OKRs they track are defined
+  // against seats, so substituting anything else would answer a different
+  // question while looking like this one.
+  if (wauRate == null || monthly == null) return null;
   // Day-7 activation modelled as a proxy of the weekly-active intensity of the
   // newly-provisioned population; sits below target during the fall ramp.
   const day7 = clamp(wauRate * 2.4, 0.02, 0.98);

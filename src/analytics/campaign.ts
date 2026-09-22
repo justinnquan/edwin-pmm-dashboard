@@ -26,8 +26,14 @@ export const campaignCTR = (c: PublicCampaign): number => c.clickRate; // clicks
 /** CTOR is only meaningful where opens are a real funnel step. In-app and
     release-notes channels have openRate 1.0 (no open concept), so CTOR would
     just duplicate CTR — return null there and render "N/A". */
-export const campaignCTOR = (c: PublicCampaign): number | null =>
-  c.openRate > 0 && c.openRate < 1 ? c.clickRate / c.openRate : null;
+export const campaignCTOR = (c: PublicCampaign): number | null => {
+  if (!(c.openRate > 0 && c.openRate < 1)) return null;
+  const ctor = c.clickRate / c.openRate;
+  // A ratio above 1 means more clickers than openers, which is not possible
+  // and indicates the open count is wrong rather than the audience unusual.
+  // Reporting nothing beats reporting a confident impossibility.
+  return ctor > 1 ? null : ctor;
+};
 
 /** The metric a campaign is judged against — its declared objective. */
 export function primaryMetric(c: PublicCampaign): Metric {
