@@ -58,28 +58,46 @@ be wrong.
 
 ## Layered architecture
 
-The UI never computes a metric. It requests a computed result from `/analytics`, which reads from
-`/data`. Replacing `/data` with a real adapter leaves `/analytics` and the UI untouched.
+Two invariants, both enforced by `npm run check:layers` rather than by convention: the UI never
+computes a metric, and nothing above `/data` can reach the synthetic generator. Everything gets its
+data through one function, `src()`, so replacing the source replaces the whole app's data.
 
 ```
 src/
+  lib/         pure date arithmetic
   theme/       design tokens (placeholder for Phia)
-  data/        seeded synthetic generators + typed schemas   ← swap point for real data
-  analytics/   KPI calc, seasonal adjustment, min-N gating, attribution, insight rules
-  state/       Zustand store: global filters, view mode
+  data/        THE SWAP POINT — the DataSource contract and its implementations
+    source.ts     src() / setSource() — the only door to data
+    synthetic.ts  the seeded generator, wrapped
+    file/         CSV parsing, validation, session persistence
+  analytics/   KPI calc, seasonal adjustment, gating, attribution, insight rules
+  state/       Zustand: global filters, and a data-source version signal
   components/  Layout shell, KPI cards, charts, tables, tooltips, states
   pages/       Overview · Marketing Performance · Campaign Impact · Timeline ·
-               Adoption · Segments · Calendar
+               Adoption · Segments · Calendar · Data Import
 ```
+
+Real data loads through the **Data Import** page (`/data`): drop CSVs, get a validation report
+saying exactly what they can and cannot support, then swap the dashboard onto them. Files are read
+in the browser and never uploaded — this repository is public, so real Edwin figures must not be
+committed to it. `docs/DATA-REQUIREMENTS.md` is the field-by-field contract.
 
 ## Develop
 
 ```bash
 npm install
-npm run dev        # http://localhost:5173
-npm run typecheck  # tsc --noEmit
-npm run build      # production build to dist/
+npm run dev              # http://localhost:5173
+npm run typecheck        # tsc --noEmit
+npm run build            # layer check + typecheck + production build
+npm run null-test        # attribution false-positive regression gate
+npm run check:layers     # fails if the generator is reachable above /data
+npm run export-sample    # write synthetic data as CSV, re-import, round-trip test
+npm run gen:requirements # regenerate docs/DATA-REQUIREMENTS.md from the CSV schema
 ```
+
+`npm run null-test` is the regression gate for any analytics change. It sweeps launch dates in a
+campaign-free window where the true effect is zero and fails if the "material" rate exceeds 5%, and
+its output is byte-stable — a diff means the behaviour changed. Run it before and after.
 
 ## Deployment
 

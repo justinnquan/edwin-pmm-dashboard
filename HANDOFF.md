@@ -1,8 +1,8 @@
 # Edwin PMM Dashboard — Project Handoff
 
 **Owner:** Justin Quan, Product Marketing Manager, Nelson Education
-**Last updated:** September 21, 2026
-**Status:** Prototype complete on synthetic data. Seven pages built. Statistical fixes landed and verified. Not yet connected to real data — and the data-layer swap point the PRD describes does not actually exist yet (see "Known issues").
+**Last updated:** September 22, 2026
+**Status:** Prototype complete. Statistical fixes landed and regression-gated. The real-data seam is built and proven — the dashboard has run end to end on an imported CSV. Not yet connected to real Edwin data, because that data has not been requested yet.
 
 ---
 
@@ -12,7 +12,7 @@ A SaaS-style Product Marketing analytics dashboard for Edwin, Nelson Education's
 
 The central question it answers: **Are our lifecycle marketing efforts moving teachers from awareness to activation to engagement to adoption to retention, and where should we act next?**
 
-It runs on seeded synthetic data behind a swappable data layer. Figures are illustrative and must not be quoted as Edwin performance.
+It ships with seeded synthetic data and can be swapped onto real data through an in-app CSV import. Synthetic figures are illustrative and must not be quoted as Edwin performance.
 
 ---
 
@@ -27,7 +27,7 @@ It runs on seeded synthetic data behind a swappable data layer. Figures are illu
 
 **Repo:** https://github.com/justinnquan/edwin-pmm-dashboard
 **Branch:** `main`
-**Visibility:** Public (was briefly private during early build)
+**Visibility:** **Public.** Real Edwin figures must never be committed. The CSV import reads files in the browser and never uploads them, specifically so real numbers can be used without ever entering the repository.
 
 ### Local development
 
@@ -48,16 +48,19 @@ npm run gen:requirements # regenerate docs/DATA-REQUIREMENTS.md from the CSV sch
 
 | File | What it is |
 |---|---|
-| `docs/Edwin_PMM_Dashboard_PRD_and_Prototype_Plan.md` | The full 8-phase PRD: critical assessment, requirements, information architecture, KPI framework, data model, mockup spec, Claude Code architecture recommendation, build plan, and open questions. This is the design bible. |
-| `docs/PHASE-C_EdwinExecutiveOverview.jsx` | The original Phase C prototype (single-file React component with embedded data/analytics layers). Superseded by the full multi-file build, kept for historical reference. |
-| `docs/DATA-REQUIREMENTS.md` | What real data the dashboard needs, field by field, tiered into Track A (aggregate, unblocked) and Track B (user-level). **The artifact for the BI discovery session.** |
+| `HANDOFF.md` | This file. Start here. |
+| `docs/DATA-REQUIREMENTS.md` | Field-by-field ask for the Edwin BI team, tiered into Track A / Track B. **Generated** from `src/data/file/schema.ts`, so it cannot drift from what the app accepts. |
+| `docs/Edwin_PMM_Dashboard_PRD_and_Prototype_Plan.md` | The full 8-phase PRD: critical assessment, requirements, information architecture, KPI framework, data model, mockup spec, build plan, open questions. The design bible. |
+| `docs/PHASE-C_EdwinExecutiveOverview.jsx` | The original Phase C single-file prototype. Superseded, kept for historical reference. |
 | `README.md` | Stack, architecture diagram, 5-minute reviewer walkthrough, development instructions. |
+
+There is also a shareable web version of the data requirements, published as a private artifact, for sending to the BI team without asking them to clone anything.
 
 ---
 
 ## Tech stack
 
-React 18, TypeScript, Vite, Tailwind v4, Recharts, Zustand, React Router. Deployed on Vercel.
+React 18, TypeScript, Vite, Tailwind v4, Recharts, Zustand, React Router, PapaParse (CSV). Deployed on Vercel.
 
 Design tokens are a placeholder for the Phia design system (Nelson's internal system). The current palette uses Edwin brand colours (primary blue `#017ACC`, dark blue `#003865`, accent orange `#E8633A`). Swapping to Phia is a single-object replacement in `src/theme/tokens.ts`.
 
@@ -65,80 +68,118 @@ Design tokens are a placeholder for the Phia design system (Nelson's internal sy
 
 ## Architecture
 
-The app follows a strict layered architecture. **The UI never computes a metric.** Every number routes through `/analytics`, which reads from `/data`. All gating (minimum-N, materiality, activity volume) lives in the analytics layer so no component can render an ungated figure by accident.
+The app follows a strict layered architecture with two invariants, **both now enforced by a script rather than by convention**:
+
+1. **The UI never computes a metric.** Every number routes through `/analytics`.
+2. **Nothing above `/data` can reach the synthetic generator.** Everything gets its data through one function, `src()`.
 
 ```
 src/
+  lib/          Pure date arithmetic — no Edwin, no generator, importable by anyone
   theme/        Design tokens (placeholder for Phia)
-  data/         Seeded synthetic generators + typed schemas   ← THE SWAP POINT
-  analytics/    KPI calc, seasonal adjustment, min-N gating, attribution, insight rules
-  state/        Zustand store: global filters, view mode, selected campaign
+  data/         THE SWAP POINT — schema, the DataSource contract, and its implementations
+    synthetic.ts    the seeded generator, wrapped as a DataSource
+    file/           CSV parsing, validation, and session persistence
+    source.ts       src() / setSource() — the only door to data
+  analytics/    KPI calc, seasonal adjustment, gating, attribution, insight rules
+  state/        Zustand: global filters, and a data-source version signal
   components/   Layout shell, KPI cards, charts, tables, tooltips, empty/error states
-  pages/        7 route-level pages (see below)
+  pages/        8 route-level pages (see below)
 ```
 
-The key architectural principle: replacing `src/data/` with a real adapter (Power BI, Edwin API, etc.) that honours the typed schema in `src/data/schema.ts` should leave `src/analytics/` and everything above it untouched.
+### The data seam
 
-> **This is the design intent, not yet the implementation.** The seam does not exist as an interface today, and the synthetic seat model leaks upward into both analytics and one page. See "Known issues — real-data blockers" below. Building that seam for real is the current workstream.
+Everything above `/data` consumes a single interface, `DataSource` (`src/data/schema.ts`). There are two implementations, and no consumer can tell which one it has:
+
+- `createSyntheticSource()` (`src/data/synthetic.ts`) wraps the seeded generator.
+- `buildFileSource()` (`src/data/file/load.ts`) parses uploaded CSV.
+
+`src/data/source.ts` holds the active one as a module singleton, reached with `src()` and replaced with `setSource()`. A module singleton was chosen over threading a parameter (which would churn ~25 signatures and ~80 call sites) and over React context (impossible — the analytics functions are plain functions, and the null-test harness runs them in Node with no React).
+
+Two parts of the contract are worth knowing about:
+
+- **`seatsOn(date, cellIds)`** replaces what used to be a synthetic seat curve. It returns `null` outside the seat table, so the year-over-year rescale degrades honestly instead of fabricating a denominator.
+- **`PublicCampaign`** structurally omits `effects` and `halfLife`, the generator's answer key. Reading them above `/data` is now a **compile error**, not something code review has to catch.
+
+Adding a Power BI or API source means writing one more implementation of that interface. Nothing in `/analytics` or the UI changes.
 
 ### File-by-file reference
+
+**Pure utilities** (`src/lib/`)
+| File | Purpose |
+|---|---|
+| `dates.ts` | `iso`, `addDays`, `daysBetween`, `fromIso`, `fmtShort`. Extracted from the old `calendar.ts` so that needing `addDays` no longer means importing the one module you are least allowed to touch. |
 
 **Data layer** (`src/data/`)
 | File | Purpose |
 |---|---|
-| `schema.ts` | Typed interfaces and discriminated unions. The contract every layer above honours. |
-| `calendar.ts` | Date utilities, deterministic RNG, seasonal model (K-12 school calendar), provisioned-population function. **Ground truth** — analytics must not read this directly, but currently does at seven sites (see Known issues). |
-| `campaigns.ts` | Campaign definitions, release events, and the `campaignMultiplier` function that injects effects into the synthetic data. Contains `effects` (ground truth). |
-| `segments.ts` | Province, grade, subject, and cell definitions with weights and engagement multipliers. |
-| `generate.ts` | The daily fact table generator (date x cell) and the lightweight user panel for exposure de-duplication. Exports `DATA` and `PANEL`. |
+| `schema.ts` | Typed interfaces, discriminated unions, and the `DataSource` / `PublicCampaign` / `Coverage` contract. What every layer above honours. |
+| `source.ts` | **The swap point.** `src()` / `setSource()` / `resetSource()`. |
+| `synthetic.ts` | Wraps the seeded generator as a `DataSource`. The only module that knows the generator exists. |
+| `target.ts` | Compiles a serializable `TargetSpec` into a cell predicate. Lives apart from `synthetic.ts` to avoid an import cycle. |
+| `file/schema.ts` | **Single source of truth for the CSV contract.** Drives the downloadable templates, the import validator, and the generated requirements doc, so the three cannot disagree. |
+| `file/load.ts` | CSV → `DataSource`, plus the validation report. Async only at the boundary; the source it produces is fully synchronous. |
+| `file/persist.ts` | sessionStorage persistence so an import survives a page reload. Tab-scoped, cleared on close. |
+| `calendar.ts` | **Ground truth.** Seasonal model, deterministic RNG, provisioned-seat curve. Unreachable above `/data`, enforced by `npm run check:layers`. |
+| `campaigns.ts` | Campaign definitions and `campaignMultiplier`. Contains `effects` (ground truth). |
+| `segments.ts` | Province, grade, subject and cell definitions with weights and engagement multipliers. |
+| `generate.ts` | The daily fact table generator (date × cell) and the user panel for exposure de-duplication. No longer exports eager constants. |
 
 **Analytics layer** (`src/analytics/`)
 | File | Purpose |
 |---|---|
-| `constants.ts` | Gating constants: `MIN_N` (300), `MATERIALITY` (0.05), `YOY_LAG` (364), metric labels. |
-| `kpis.ts` | Core calculations: `cellFilter`, `sumOn`, `seriesFor`, `windowMean`, `adjustedChange`. The seasonal-adjustment math lives here. |
-| `attribution.ts` | Campaign-level attribution: `reachedIn` (de-duplicated exposure), `campaignsInWindow`, `campaignImpact` (before/after, seasonally adjusted, N-gated). |
-| `campaign.ts` | Phase D methods: channel metrics, `matchedBaseline` (send-cohort vs. rest-of-platform), `cohortProgression`, `sustainedVerdict`, `channelRollup`, `campaignInterpretation`. |
-| `insights.ts` | Deterministic insight rules. Three rule types: seasonality guard, campaign-associated changes, segment declines. All gated on materiality and minimum N. |
-| `adoption.ts` | Activation funnel modelled from aggregate data (not per-user cohort events). Clearly flagged as modelled estimates. |
-| `segments.ts` | Segment comparison rows and opportunity ranking. Min-N gated. |
-| `format.ts` | Formatting helpers (`pct`, `int`). |
+| `constants.ts` | Gating constants: `MIN_N` (300), `MIN_DAILY_ACTIVE` (400), `MATERIALITY` (0.05), `CONFIDENCE_Z` (1.96), `YOY_LAG` (364), `BASELINE_SMOOTH` (3), metric labels. |
+| `kpis.ts` | Core calculations: `cellFilter`, `sumOn`, `seriesFor`, `windowStats`, `adjustedSE`, `adjustedChange`, `seatWeightedRate`. The seasonal-adjustment and uncertainty math lives here. |
+| `attribution.ts` | `reachedIn` (de-duplicated exposure), `campaignsInWindow`, `campaignImpact` (before/after, seasonally adjusted, N-, volume- and uncertainty-gated). |
+| `campaign.ts` | Channel metrics, `segmentComparison` (targeted vs. rest of platform), `cohortProgression`, `sustainedVerdict`, `channelRollup`, `campaignInterpretation`. |
+| `insights.ts` | Deterministic insight rules: seasonality guard, campaign-associated changes, segment declines. All gated. |
+| `adoption.ts` | Activation funnel and OKR gauges, modelled from aggregate data. Flagged as modelled. |
+| `segments.ts` | Segment comparison rows and opportunity ranking. Gated, and carries the reason a figure is suppressed. |
+| `format.ts` | `pct` (signed, for changes), `pctAbs` (unsigned, for levels and thresholds), `int`. |
 
 **State** (`src/state/`)
 | File | Purpose |
 |---|---|
-| `filterStore.ts` | Zustand store holding global filters (view mode, date range, attribution window, province, grade, subject, selected campaign). All pages read from and write to this. Default view is Leadership, default window is 7 days. |
+| `filterStore.ts` | Global filters: view mode, date range, attribution window, province, grade, subject, selected campaign. Default view is Leadership, default window 7 days. |
+| `dataStore.ts` | Which source is active, and a `version` counter bumped on swap. **Holds no data** — the moment a component could select a metric off the store, "the UI never computes a metric" would stop being true. |
 
 **Components** (`src/components/`)
 | File | Purpose |
 |---|---|
-| `Layout.tsx` | App shell: left rail, top bar, filter bar, methodology strip, view toggle. |
-| `Rail.tsx` | Left navigation rail with section links. |
-| `KpiCard.tsx` | KPI card component showing value, raw/adjusted pair, note, and optional caveat chip. |
-| `TrendChart.tsx` | The main WAU trend chart with seasonal baseline, gap shading, and campaign/release markers. |
-| `InsightStrip.tsx` | Renders the "What changed" insight cards with suppression count. |
-| `DrillPanel.tsx` | Campaign drill-down panel (opened by clicking a campaign marker). |
-| `ProductImpact.tsx` | Campaign product-impact cards (WAU, resource, assignment change). |
-| `AdoptionViz.tsx` | Activation funnel visualization and OKR gauges. |
-| `InfoTip.tsx` | Tooltip component for KPI definitions and methodology. |
-| `MethodologyModal.tsx` | Full methodology explanation modal. |
-| `campaignStyle.tsx` | Campaign type colour/icon mapping. |
-| `kpiInfo.ts` | Per-KPI definition, calculation, and limitation text (feeds InfoTip). |
-| `nav.ts` | Navigation item definitions. |
-| `primitives.tsx` | Shared primitives: Card, Chip, Select. |
-| `states.tsx` | Empty, error, and insufficient-data state components. |
-| `ErrorBoundary.tsx` | React error boundary. |
+| `Layout.tsx` | App shell: left rail, top bar, filter bar, methodology strip, view toggle. The strip is driven by the active source — real as-of date, provenance label, a warning when history is too short for a baseline, and a "Denominator modelled" caveat from `coverage`. Keys `<Outlet>` on the data version so a swap remounts cleanly. |
+| `Rail.tsx` | Left navigation rail. |
+| `KpiCard.tsx` | KPI card: value, raw/adjusted pair, note, optional caveat chip. |
+| `TrendChart.tsx` | WAU trend with seasonal baseline, gap shading, campaign/release markers. |
+| `InsightStrip.tsx` | "What changed" cards with a suppression count. |
+| `DrillPanel.tsx` | Campaign drill-down opened from a marker. |
+| `ProductImpact.tsx` | Campaign product-impact cards with uncertainty bands. |
+| `AdoptionViz.tsx` | Activation funnel and OKR gauges. |
+| `InfoTip.tsx` / `kpiInfo.ts` | Per-KPI definition, calculation and limitation text. |
+| `MethodologyModal.tsx` | Full methodology explainer. Describes the method actually implemented. |
+| `campaignStyle.tsx` | Campaign type colour mapping and legend. |
+| `nav.ts` | Navigation config. |
+| `primitives.tsx` | Card, Chip, Select. |
+| `states.tsx` / `ErrorBoundary.tsx` | Empty, loading, error and insufficient-data states. |
 
 **Pages** (`src/pages/`)
 | File | Route | Purpose |
 |---|---|---|
 | `ExecutiveOverview.tsx` | `/` | Landing page. North-star + 4 KPIs, Marketing Impact panel, WAU trend with baseline, "What changed" strip, campaign contribution table (PMM view). |
-| `MarketingPerformance.tsx` | `/marketing` | Campaign table (sortable by associated impact), channel roll-up, campaign comparison. PMM view only. |
-| `CampaignImpact.tsx` | `/campaign/:id` | Full campaign drill-down: summary, product impact, before/after, send-cohort vs. baseline, cohort progression, interpretation. |
-| `ActivityTimeline.tsx` | `/timeline` | Interactive multi-lane timeline with campaign/release markers and selectable metric lanes. |
-| `AdoptionEngagement.tsx` | `/adoption` | J1-J5 activation funnel, Day-7 and monthly-active OKR gauges, feature adoption bars. |
-| `Segments.tsx` | `/segments` | Segment comparison table across province/grade/subject, opportunity ranking. PMM view only. |
+| `MarketingPerformance.tsx` | `/marketing` | Campaign table (sortable), channel roll-up, 2-up campaign comparison. PMM view only. |
+| `CampaignImpact.tsx` | `/campaign/:id` | Campaign drill-down: summary, product impact, before/after with uncertainty, targeted vs. rest of platform, cohort progression, interpretation. |
+| `ActivityTimeline.tsx` | `/timeline` | Multi-lane timeline with campaign/release markers and selectable metric lanes. |
+| `AdoptionEngagement.tsx` | `/adoption` | J1–J5 activation funnel, Day-7 and monthly-active OKR gauges, feature adoption bars. |
+| `Segments.tsx` | `/segments` | Segment comparison across province/grade/subject, opportunity ranking. PMM view only. |
 | `CampaignCalendar.tsx` | `/calendar` | Month-by-month campaign calendar with product event overlay. |
+| `DataImport.tsx` | `/data` | **Load real data.** Drop CSVs, get a validation report saying exactly what they can and cannot support, then swap the dashboard onto them. Includes downloadable templates. |
+
+**Scripts** (`scripts/`)
+| File | Purpose |
+|---|---|
+| `null-test.ts` | Sweeps every launch date in a campaign-free window where the true effect is zero and fails if the "material" rate exceeds 5% at any window. Also prints ground-truth recovery per campaign. **The regression gate for any analytics change.** |
+| `check-layers.ts` | Fails the build if anything under `analytics`, `components`, `pages`, `state` or `lib` imports a generator module. |
+| `export-sample.ts` | Writes the synthetic data out in the real CSV contract, reads it back, and compares. A round-trip test of the file adapter, and a concrete example file to hand the BI team. |
+| `gen-requirements.ts` | Regenerates `docs/DATA-REQUIREMENTS.md` from the CSV schema. |
 
 ---
 
@@ -148,7 +189,7 @@ The key architectural principle: replacing `src/data/` with a real adapter (Powe
 
 The signature element is the **seasonal baseline gap**. Every metric trend shows a solid line (actual) and a dashed line (what the prior year predicts would have happened anyway, rescaled for seat growth). The shaded band between them is the gap. When the gap is narrow, the movement is calendar-driven. When it's wide, something changed above what the season explains.
 
-This makes the central claim of the dashboard visible without assertions: you can see for yourself whether a campaign marker sits near a gap opening.
+This makes the central claim visible without assertions: you can see for yourself whether a campaign marker sits near a gap opening.
 
 ### What the synthetic data contains
 
@@ -170,13 +211,13 @@ The mix is deliberate. If every campaign looked successful, the data would be wr
 
 ### Seasonal model
 
-Based on the Canadian K-12 calendar (Ontario/Alberta): September surge, holiday troughs, exam spikes, summer collapse. Twenty-three anchor points interpolated across the year. Day-of-week effects applied (Sunday ~42% of weekday, Saturday ~30%).
+Based on the Canadian K-12 calendar (Ontario/Alberta): September surge, holiday troughs, exam spikes, summer collapse. Twenty-three anchor points interpolated across the year, with day-of-week effects (Sunday ~42% of a weekday, Saturday ~30%).
 
-The generator uses this model to produce the synthetic data. The analytics layer is **not allowed to read it** and must recover seasonality from the prior-year data alone. This separation is what makes the seasonal adjustment honest rather than circular.
+The generator uses this model. The analytics layer **cannot read it** — enforced by `npm run check:layers` — and must recover seasonality from prior-year data alone. That separation is what makes the seasonal adjustment honest rather than circular.
 
 ### Progressive disclosure
 
-Leadership and Product Marketing views are the same data with different levels of detail. The toggle in the top-right header controls which sections and detail rows appear. Leadership gets the 30-second read (overview KPIs, marketing impact, trend). Product Marketing unlocks campaign tables, drill-downs, segments, the calendar.
+Leadership and Product Marketing views are the same data at different levels of detail. Leadership gets the 30-second read (overview KPIs, marketing impact, trend). Product Marketing unlocks campaign tables, drill-downs, segments, the calendar.
 
 ---
 
@@ -184,114 +225,120 @@ Leadership and Product Marketing views are the same data with different levels o
 
 Historical record of what was wrong and what was done about it. Kept because the reasoning matters when these thresholds get re-tuned against real data.
 
-### P0 — Materiality threshold is below the method's noise floor
+### P0 — Materiality threshold was below the method's noise floor
 
-**The problem.** `MATERIALITY = 0.05` (5%) is the threshold for calling a change "material." But a null-campaign test (100 fake launch dates where the true effect is zero) shows the method's own noise level exceeds 5% at 7-day and 14-day windows. At the 7-day default window, the method calls a zero-effect campaign "material" roughly 22% of the time.
+`MATERIALITY = 0.05` was the bar for calling a change "material", but a null-campaign test showed the method's own noise exceeded 5% at 7- and 14-day windows. At the default 7-day window the method called a zero-effect campaign "material" roughly **22%** of the time. ELA Progress Checks (truth +1%) showed +10.1% MATERIAL; Summer Prep (truth zero) showed −8.0% MATERIAL.
 
-**Live consequences.** ELA Progress Checks (injected truth +1%) currently shows as +10.1%, MATERIAL. Summer Prep (injected truth zero) shows as -8.0%, MATERIAL. The dashboard reports wins that don't exist.
+**Root cause.** The seasonal baseline took a single-point value from 364 days ago, carrying its own independent noise draw. Dividing two noisy series multiplies the error, and a fixed 5% threshold cannot adapt to low-activity windows.
 
-**Root cause.** The seasonal baseline takes a single-point value from 364 days ago, which carries its own independent noise draw. Dividing two noisy series multiplies the error. And the fixed 5% threshold can't adapt to low-activity windows where noise is larger.
-
-**The fix — LANDED.** Smooth the baseline with a centred ±3 day rolling mean. Add uncertainty propagation through the ratio-of-ratios. Gate on estimated uncertainty, not a fixed threshold. Add a minimum activity-volume gate alongside the headcount gate.
+**The fix — landed.** Smooth the baseline with a centred ±3-day rolling mean. Propagate uncertainty through the ratio-of-ratios via the delta method. Gate on `max(MATERIALITY, CONFIDENCE_Z × se)` rather than a flat threshold. Add `MIN_DAILY_ACTIVE`, a volume floor, surfaced as the `insufficient-volume` state. **False-positive rate is now 0.0% at 7 and 14 days, ≤5% at 30.**
 
 ### P1 — Ground-truth leak
 
-`src/analytics/campaign.ts:26` and `src/components/DrillPanel.tsx:23` read `campaign.effects`, which is the generator's answer key. This auto-selects each campaign's best metric (flattery mechanism) and will break when real data replaces synthetic data.
+`campaign.ts` and `DrillPanel.tsx` read `campaign.effects`, the generator's answer key, auto-selecting each campaign's best-looking metric.
 
-**The fix (Task 4).** Add an author-declared `objectiveMetric` field to `CampaignDef`. PMM knows the campaign's objective before send, so this field exists honestly in real data.
+**The fix — landed.** An author-declared `objectiveMetric` on each campaign — PMM knows the objective before send, so this field exists honestly in real data. `effects` is now structurally absent from `PublicCampaign`, so reading it above `/data` is a compile error.
 
-### P1 — Matched baseline isn't matched
+### P1 — "Matched baseline" wasn't matched
 
-`matchedBaseline()` compares targeted cells against non-targeted cells, but no actual matching happens. Primary/Junior teachers (engagement 1.06) get compared to Secondary (0.89). It also returns `no-holdout` for 5 of 7 campaigns because most target everyone.
+`matchedBaseline()` compared targeted cells against non-targeted cells with no actual matching, and returned `no-holdout` for 5 of 7 campaigns.
 
-**The fix (Task 5).** Rename honestly to "Targeted segment vs. rest of platform." Make the `no-holdout` state visually prominent as an argument for reserving randomised holdouts.
+**The fix — landed.** Renamed to "Targeted segment vs. rest of platform" and labelled "Not a control". The `no-holdout` state is now a prominent callout arguing for randomised holdouts rather than a quiet empty state.
 
-### P1 — Sustained verdict mislabels natural decay
+### P1 — Sustained verdict mislabelled natural decay (fixed twice)
 
-Report Card's weekly progression decays from +15% to +2% and gets labelled "spike" when it's actually a sustained lift that naturally faded. The `|last| >= 0.5 * peak` rule guarantees any real effect eventually reads "spike" the longer you observe it.
+The original rule (`|last| ≥ 0.5 × peak`) guaranteed any real effect eventually read "spike" the longer you observed it.
 
-**The fix (Task 6).** Use signed logic: sustained when the last three weeks hold the same sign as the peak and clear materiality.
+The first revision used signed logic against a flat 5% — and introduced a worse bug, caught later by inspecting the running app: **it never received the P0 uncertainty fix.** It tested weekly values against the flat floor and ignored the standard error entirely, so Summer Prep — injected truth **zero**, and correctly gated as not material at ±19.3% SE — was labelled **"sustained"** and told the reader *"The lift has held week over week."* A zero-effect campaign was making an affirmative durability claim.
+
+**The fix — landed.** Weekly points now carry their own `se` and materiality, and only weeks clearing their own band count as evidence. A "faded" verdict was added for a lift that held and then decayed, so Report Card — material for six consecutive weeks at 12–20% before fading — no longer reads as a one-week spike. Summer Prep now reads "insufficient".
 
 ### P2 — Smaller bugs
 
-Retention is unweighted across cells. Channel rollup ignores the date filter. Campaign-associated impact hardcodes `resourceOpens` for all campaigns. CTOR shows a duplicated number for channels with no open concept.
+Retention was unweighted across cells; the channel rollup ignored the date filter; campaign-associated impact hardcoded `resourceOpens`; CTOR was duplicated for channels with no open concept. All fixed.
 
-**All of the above are fixed.** Verified by `npm run null-test`, which sweeps every launch date in a campaign-free window and fails if the false-positive rate exceeds 5% at any window. It currently reports 0.0% at 7 and 14 days.
+Separately, level metrics were rendered with the signed formatter, so a 16% active rate displayed as "+16.0%" and read as a 16% *increase*. `pctAbs` now handles levels and thresholds; only changes keep their sign.
 
 ---
 
-## Known issues — real-data blockers
+## Architectural issues found while scoping real data — all fixed
 
-These are architectural, not statistical, and none of them were in the original code review. They were found while scoping the real-data work. **Every one of them is invisible while the data is synthetic and breaks the moment it isn't.**
+None of these were in the original code review. Every one was invisible while the data was synthetic and would have broken the moment it wasn't.
 
-### P0 — The data-layer swap point does not exist
+### P0 — The data-layer swap point did not exist
 
-The PRD and the Architecture section above both claim `src/data/` is a clean swap point: replace it with a real adapter and `src/analytics/` and the UI are untouched. That is not true today.
+The PRD claimed `/data` was a clean swap point. In fact `generate.ts` exported `DATA` and `PANEL` as module-level constants built eagerly at import time, and eight analytics files plus fifteen UI files imported from `/data` directly. There was no interface and no injection point — "swapping the data layer" meant deleting files and hoping everything still typechecked.
 
-`src/data/generate.ts` exports `DATA` and `PANEL` as module-level constants computed eagerly at import time. Eight analytics files and fifteen UI files import from `src/data/` directly. There is no interface, no injection point, and no way to hold two sources at once. "Swapping the data layer" currently means deleting files and hoping everything above still typechecks.
+**The fix — landed.** The `DataSource` interface, the `src()` singleton, and two implementations. See "The data seam" above.
 
-**The fix.** A `DataSource` interface in `src/data/source.ts` capturing the eight things analytics actually consumes, with a module-singleton provider (`src()` / `setSource()`), a `SyntheticDataSource` wrapping today's generators, and a `FileDataSource` parsing uploaded CSV.
+### P0 — The synthetic seat model leaked into analytics and the UI
 
-### P0 — The synthetic seat model leaks into analytics and the UI
+`provisioned()` in `calendar.ts` is a hardcoded piecewise ramp — pure generator ground truth — and it was imported by five analytics files and one page. **Every rate on the dashboard, including the north-star denominator and every seasonal baseline rescale, divided by a fabricated curve.**
 
-`provisioned()` (`src/data/calendar.ts:62`) is a hardcoded piecewise ramp — pure generator ground truth. The file-by-file table above says analytics must not read `calendar.ts` directly. It does, at seven sites: `kpis.ts:9`, `campaign.ts:15`, `insights.ts:8`, `segments.ts:9`, `adoption.ts:14`, and the UI at `pages/ExecutiveOverview.tsx:11`.
+**The fix — landed.** `seatsOn()` on the `DataSource`, returning `null` outside the seat table. The barrier is now enforced by `npm run check:layers`, which fails the build; it was a comment for the entire life of the project, which is precisely how the leak got in.
 
-**Consequence.** Every rate on the dashboard — the north-star active teacher rate, every seasonal baseline rescale, every per-cell seat figure — currently divides by a fabricated curve. This is the single biggest blocker to real data.
+### P1 — `TODAY` was a hardcoded constant
 
-**The fix.** `seatsOn(date, cellIds)` on the `DataSource`, returning `null` outside the seat table so the year-over-year rescale degrades honestly instead of silently fabricating a denominator. Enforce the barrier with an ESLint `no-restricted-imports` rule so it becomes a build failure rather than a code-review catch.
+Pinned to 26 Aug 2026 and imported across analytics and six pages.
+
+**The fix — landed.** `src().asOf`, derived from the data's own maximum date, so the dashboard reports what it actually has rather than what the clock says.
+
+### P1 — Methodology copy described the pre-fix method
+
+The fixes changed the math but not the explanation. The modal called the comparison group "comparable non-recipients" while the code said explicitly that it is NOT a matched control, and the strip still advertised a flat "Materiality 5%".
+
+**The fix — landed.** All methodology copy now describes the implemented method, and hardcoded "5%" strings were replaced with `pctAbs(MATERIALITY)` so the copy cannot drift from the constants again.
+
+---
+
+## Known issues that remain
 
 ### P1 — Distinct-teacher metrics are summed across cells
 
-`sumOn` (`src/analytics/kpis.ts:22-28`) adds every metric across segment cells, including `wau`, `dailyActive`, and `ahaUsers`. This is correct synthetically because each generated teacher occupies exactly one cell. Real teachers teach more than one subject or grade, so they land in several cells and get counted once per cell — inflating WAU and the north-star.
+`sumOn` (`src/analytics/kpis.ts`) adds every metric across segment cells, including `wau`, `dailyActive` and `ahaUsers`. This is correct synthetically, because each generated teacher occupies exactly one cell. **Real teachers teach more than one subject or grade**, so they land in several cells and get counted once per cell, inflating WAU and the north-star.
 
-**The fix.** Ask BI for both grains: per-cell counts *and* pre-deduplicated totals at each rollup level. Documented in `docs/DATA-REQUIREMENTS.md`.
+This is a data-request problem rather than a code problem, and it is the first of the three flagged items in `docs/DATA-REQUIREMENTS.md`: ask BI for per-cell counts *and* pre-deduplicated totals at each rollup level.
 
-### P1 — `TODAY` is a hardcoded constant
+### P1 — Campaign reach cannot be de-duplicated from per-campaign counts
 
-`src/data/calendar.ts:8` pins the as-of date to 26 Aug 2026 and is imported across analytics and six pages. Real data needs an as-of date derived from the data's own maximum date, so the dashboard reports what it actually has rather than what the clock says.
-
-### P1 — Methodology copy describes the pre-fix method
-
-The statistical fixes changed the math but not the explanation. `MethodologyModal.tsx:19-22` still calls the comparison group "comparable non-recipients" while `campaign.ts:52` says explicitly that it is NOT a matched control. The strip in `Layout.tsx:160` still advertises a flat "Materiality 5%" rather than the floor-plus-uncertainty-band bar that is actually applied. The dashboard currently misdescribes itself.
+`reachedIn` needs a *union* of distinct teachers across a set of campaigns. A CSV at campaign × cell grain gives per-campaign counts, and summing them double-counts anyone reached by two campaigns. The file adapter currently reports the largest single campaign rather than a sum, and the validator says so. The real fix is a pre-computed distinct union from BI.
 
 ### P2 — Gate constants are calibrated to synthetic magnitudes
 
-`MIN_N = 300` and `MIN_DAILY_ACTIVE = 400` were set against a 24-cell, 28,400-seat synthetic population, and the ≤5% false-positive guarantee holds **for the synthetic generator only**. On real data expect either everything gated or nothing gated. Re-run the null test against a real campaign-free window and re-derive both constants from the observed noise floor.
+`MIN_N = 300` and `MIN_DAILY_ACTIVE = 400` were set against a 24-cell, 28,400-seat synthetic population, and the ≤5% false-positive guarantee holds **for the synthetic generator only**. On real data expect either everything gated or nothing gated. Re-run the null test against a real campaign-free window and re-derive both from the observed noise floor. This cannot be done until real data exists.
 
+### P2 — Non-exhaustive state handling in two components
+
+`ProductImpact.tsx` and `DrillPanel.tsx` match `CampaignImpact` states with `===` chains rather than exhaustive switches, so a new union member would compile fine and render nothing. Convert both before adding any new gate state.
+
+### Deferred by design
+
+Phia design tokens (`src/theme/tokens.ts` is still a placeholder), true exposed/unexposed holdouts (a campaign-ops process change, not a dashboard feature), the account/board view (gated on board data existing), and longitudinal cohort retention curves.
 
 ---
 
 ## Approach decisions that held
 
-- **Association, not causation language.** Every comparison is labelled observational. The "Association" chip on KPI cards, the methodology strip, the drill-panel caveats. This is non-negotiable and should survive into production.
-- **Send-cohort vs. baseline, not opener-vs-non-opener.** The brief originally suggested comparing openers to non-openers. This was rejected because teachers who open emails are systematically more engaged, so every campaign would look like a winner. The prototype compares the full targeted send cohort instead.
-- **Deterministic insights, not generated text.** Insight sentences fire only when a change clears materiality AND minimum N AND is seasonally adjusted. No free-form language model narration. This prevents the dashboard from asserting noise as signal.
-- **Layer separation.** The UI never computes a metric. Verified by grep: no arithmetic in `components/` or `pages/`. All gating in `analytics/`. This is the architecture's most important property.
+- **Association, not causation language.** Every comparison is labelled observational. Non-negotiable; should survive into production.
+- **Send-cohort vs. baseline, not opener-vs-non-opener.** Comparing openers to non-openers was rejected: teachers who open emails are systematically more engaged, so every campaign would look like a winner.
+- **Deterministic insights, not generated text.** Insight sentences fire only when a change clears materiality, minimum N, volume, and is seasonally adjusted. No free-form narration, so the dashboard cannot assert noise as signal.
+- **Layer separation, now enforced.** The UI never computes a metric; the generator is unreachable above `/data`. Both were conventions and are now build failures. This is the architecture's most important property, and making it mechanical is what stopped it eroding.
+- **The dashboard should be quiet.** It suppresses more than it reports, and every suppressed figure carries its reason. That is the correct outcome, not a defect.
 
 ---
 
-## How the project was built
+## Verification
 
-### Phase sequence
+Four gates, all green as of this writing. Any analytics change should keep them that way.
 
-| Phase | What | Status |
-|---|---|---|
-| Prompt + PRD | 30-section product brief specifying the dashboard concept, a critical assessment challenging assumptions, and a full PRD with KPI framework, data model, IA, mockup spec, and build plan | Complete. Lives in `docs/Edwin_PMM_Dashboard_PRD_and_Prototype_Plan.md` |
-| Phase C prototype | Single-file React component (Executive Overview) with embedded data/analytics/UI layers, demonstrating the seasonal baseline, KPI cards, insight strip, and campaign drill-down | Complete. Superseded by multi-file build. Original in `docs/PHASE-C_EdwinExecutiveOverview.jsx` |
-| Full build (Phases A-G) | Justin built the full 7-page app in Claude Code, separating the single-file prototype into the layered architecture | Complete. All 7 pages, clean TypeScript, clean build, deployed to Vercel. |
-| Code review | Cloned repo, ran typecheck and build, grepped for ground-truth leaks and ungated arithmetic, ran numerical harnesses against the attribution math, measured false-positive rate with null-campaign test | Complete. |
-| Statistical fixes | 8 tasks addressing the P0/P1/P2 findings, plus a null-test regression script | Complete. Commit `36009e5`. False-positive rate 22% → 0.0% at the 7-day window. |
-| Real-data readiness | Data-source seam, in-app CSV import with schema validation, and the BI requirements spec | Complete. The dashboard runs on an imported CSV end to end. |
+| Command | What it proves |
+|---|---|
+| `npm run typecheck` | Clean TypeScript. |
+| `npm run check:layers` | 35 files scanned, no generator imports above `/data`. Verified to actually fail on an injected violation. |
+| `npm run null-test` | False-positive rate 0.0% at 7 and 14 days, ≤5% at 30. **Its output is byte-stable** — the seeded RNG makes any diff a real behaviour change, which is what made the data-seam refactor safe to do. |
+| `npm run export-sample` | The file adapter reproduces the synthetic source within 0.113%, which is integer rounding. |
 
-### Key design decisions and their rationale
-
-**Why the north-star is active teacher rate, not WAU.** WAU grows when sales sells more seats, which has nothing to do with PMM. Active teacher rate (WAU / provisioned) isolates behaviour change from seat growth. Maps directly to the 50% MAU company OKR.
-
-**Why seasonal adjustment is a v1 requirement, not a v2 enhancement.** Edwin usage is dominated by the school calendar. Without a seasonal baseline, every fall campaign is a fake hero and every summer campaign looks like a crisis. This is the thing that makes the dashboard credible in a leadership room.
-
-**Why "exposed vs. unexposed" was scoped to future state.** True exposed/unexposed requires randomised holdout groups designed into campaigns before send. That's a campaign-ops process change, not a dashboard feature. Faking it with opener-vs-non-opener would systematically inflate every campaign's apparent impact.
-
-**Why the "aha" definition matters.** "Adoption rate" is defined as the share of active teachers who created a class or assignment. This is the point where a teacher has committed their workflow to Edwin. It maps to the J4/J5 onboarding journeys. A different definition (e.g. "opened 5 resources") would change the north-star's behaviour. PMM should own this call.
+Browser QA of all eight pages has been done on localhost and on the live Vercel deployment, including a full CSV import round trip.
 
 ---
 
@@ -299,68 +346,67 @@ The statistical fixes changed the math but not the explanation. `MethodologyModa
 
 | Metric | Definition | Calculation |
 |---|---|---|
-| Active teacher rate | Share of provisioned teachers who did something meaningful in Edwin in the last 7 days | WAU / provisioned seats |
+| Active teacher rate | Share of provisioned teachers who did something meaningful in the last 7 days | WAU / provisioned seats |
 | WAU | Distinct teachers with ≥1 meaningful action in a rolling 7-day window | count(distinct users with events in window) |
 | Adoption rate | Share of active teachers who created a class or assignment | users with aha event / active users |
-| 4-week retention | Share of a start cohort still active 4 weeks later | active in week 4 / cohort size |
-| Campaign-associated change | Exposure-weighted mean of seasonally-adjusted resource engagement changes across recent campaigns | For each campaign: (post/pre) / (baseline_post/baseline_pre) - 1, weighted by exposed teachers |
-| Seasonal adjustment | Divides the observed before/after movement by the prior-year baseline movement over the same calendar window | Adjusted = (post/pre) / (bPost/bPre) - 1 |
-| Raw change | Simple period-over-period movement, not adjusted for seasonality | post/pre - 1 |
-| Materiality | A change is "material" when it exceeds the threshold (currently 5%) after seasonal adjustment | (After fixes: must also exceed its own uncertainty band) |
-| Minimum N | Results are suppressed when the exposed teacher count falls below 300 | Hard gate in the analytics layer |
+| 4-week retention | Share of a start cohort still active 4 weeks later | active in week 4 / cohort size, seat-weighted across cells |
+| Campaign-associated change | Exposure-weighted mean of seasonally-adjusted changes in each campaign's **declared objective metric** | For each campaign: (post/pre) / (baseline_post/baseline_pre) − 1, weighted by exposed teachers |
+| Seasonal adjustment | Divides the observed before/after movement by the prior-year baseline movement over the same calendar window | Adjusted = (post/pre) / (bPost/bPre) − 1, baseline smoothed ±3 days |
+| Raw change | Simple period-over-period movement, not adjusted for seasonality | post/pre − 1 |
+| Materiality | A change is material when it clears **both** a 5% floor **and** its own uncertainty band | abs(adjusted) ≥ max(0.05, 1.96 × se) |
+| Minimum N | Suppressed below 300 exposed teachers | Hard gate in the analytics layer |
+| Minimum activity | Suppressed below 400 mean daily-active teachers in either comparison window | Hard gate in the analytics layer |
+| Durability verdict | Sustained / faded / spike / insufficient, decided on each week's own uncertainty band | Only weeks clearing their own bar count as evidence |
 
 ---
 
 ## What's needed to make it operational
 
-### Two parallel data tracks
+**The full field-by-field ask is `docs/DATA-REQUIREMENTS.md`.** It is generated from the CSV contract the app actually accepts, and the `/data` page will score any real export against it and report what is missing. The fastest way to make progress is to send one export, however partial, and let the tool say where things stand.
 
-**Track A — Aggregate history (unblocked, no identity spine needed).** Daily metric totals by segment (province, grade, subject) going back 13+ months. Needed for the seasonal baseline. If Power BI already has this, the baseline may be computable in weeks.
+### Two parallel tracks
 
-**Track B — User-level joins (blocked on identity spine).** Needed for all campaign-to-product-behaviour attribution. Requires a reliable email-to-user_id-to-account_id mapping.
+**Track A — aggregate history (unblocked, no identity spine).** Daily metric totals by segment with a provisioned-seats column, 13+ months. Unlocks the seasonal baseline, the north-star, and the whole trend story on its own. If Power BI already holds daily activity by province, grade and subject, this may be days of work.
 
-### Data requirements
+**Track B — user-level exposure (blocked on the identity spine).** Distinct teachers reached per campaign. Needed for all campaign attribution. Without it the dashboard still works; campaign panels report insufficient sample rather than a result.
 
-| Data | Needed for | Likely source | Blocker |
-|---|---|---|---|
-| Daily activity by segment, 13+ months | Seasonal baseline | Power BI / Edwin DB | History depth: under 13 months means no YoY baseline |
-| Provisioned teachers per account as a time series | Active teacher rate, Day-7 activation | Salesforce (migrating to Admin Console) | Cannot be back-filled. Start snapshotting immediately. |
-| Product events with user_id + timestamp | All campaign attribution | Edwin app DB | Needs event store or derived tables, not GA |
-| Pardot sends/opens/clicks per prospect + timestamp | Campaign exposure | Pardot | Retention window is finite. Start archiving now. |
-| In-app notification impressions/clicks per user | In-app campaign attribution | Notification delivery system | Often not instrumented at all. Check early. |
-| Province, grade, subject, role on user record | All segmentation | Edwin user profile | Grade and subject may be self-declared or blank |
-| Email-to-user_id-to-account_id mapping | Identity spine (Track B) | Salesforce + Edwin | The single biggest dependency. Match rate unknown. |
-| Randomised holdout flag per send | Causal claims (future) | Pardot (process change) | Requires campaign ops buy-in |
+### The hard gate
+
+**374 days of history** — a 364-day year-over-year lag, ±3-day smoothing, and one comparison window. Below that there is no seasonal baseline, every adjusted figure reports unavailable, and the dashboard falls back to raw levels. For K-12 data that means September always looks like a triumph and July always like a collapse. **Depth of history matters more than breadth of metrics.** The import validator states this explicitly when a file falls short.
 
 ### Risks
 
 1. **In-app notification instrumentation.** ETS was the campaign with the genuine sustained lift, and it's an in-app notification. If those don't log per-user impressions, the channel that showed the best result is the channel you can't measure.
-2. **Provisioning source is migrating.** The Modular Platform roadmap targeted 85%+ of boards provisioned with no Salesforce. Build the denominator against Admin Console, not Salesforce.
-3. **Gating thresholds need re-tuning on real data.** `MIN_N = 300` and the volume floor were set against synthetic data. Re-run the null test against real data and set both from the observed noise floor.
+2. **Provisioning source is migrating.** The Modular Platform roadmap targeted 85%+ of boards provisioned with no Salesforce. Build the denominator against Admin Console.
+3. **Per-cell seats may not exist.** If licences are counted by board rather than grade × subject, the denominator stays allocated rather than measured. Workable — the strip shows a "Denominator modelled" caveat — but it must be known, because an allocated denominator produces a confident-looking activation rate that is partly an assumption.
+4. **Gating thresholds need re-tuning.** See "Known issues that remain".
 
 ### Recommended next steps in order
 
-1. ~~Land the statistical fixes.~~ Done — commit `36009e5`.
-2. **Socialize the fixed prototype** with your manager and leadership. Get decisions on the "aha" definition, the five headline KPIs, and whether the association framing holds.
-3. **Run a data discovery session** with the Edwin data/BI team. Output: a data availability matrix scored against `src/data/schema.ts`.
-4. **Start capturing immediately** (cannot be back-filled): weekly provisioned-teacher snapshots per account, and Pardot user-level activity archives.
-5. **Spike the identity spine.** Attempt the email-to-user_id join on a sample. If match rate is below ~70%, scope to aggregate-only (Track A).
-6. **Swap to real aggregate data** (Track A). Ship the seasonal baseline on real data first, before user-level attribution.
-7. **Add user-level attribution** (Track B) once the spine holds.
-8. **Design holdouts into campaigns.** The only path to causal claims.
+1. ~~Land the statistical fixes.~~ Done.
+2. ~~Build the real-data seam and a way to import data.~~ Done.
+3. **Send `docs/DATA-REQUIREMENTS.md` to the Edwin data/BI team** and book the discovery session. This is the current blocking step — everything downstream waits on real data.
+4. **Socialize the prototype** with your manager and leadership. Get decisions on the five headline KPIs and whether the association framing holds.
+5. **Start capturing immediately** (cannot be back-filled): weekly provisioned-teacher snapshots per account, and Pardot user-level activity archives.
+6. **Import the first real Track A export** through `/data` and read the validation report. Expect the history-depth warning.
+7. **Re-derive the gate constants** from the real noise floor once there is enough history to run the null test against a real campaign-free window.
+8. **Spike the identity spine.** Attempt the email-to-user_id join on a sample. Below ~70% match rate, scope to aggregate-only.
+9. **Add Track B** once the spine holds.
+10. **Design holdouts into campaigns.** The only path to causal claims.
 
 ---
 
-## Open questions (from the PRD, still unresolved)
+## Open questions
 
-1. Does a reliable email-to-user_id-to-account_id mapping exist today, and how lossy is it?
+1. Does a reliable email-to-user_id-to-account_id mapping exist today, and how lossy is it? *(Gates all of Track B.)*
 2. Can Pardot and in-app notification data be delivered at the user level with timestamps, joined to user_id?
-3. Can we get provisioned-teacher counts per account per period?
-4. How many weeks of consistent product-event history exist?
-5. Is Pardot/campaign ops able to reserve a randomised holdout before send?
-6. Can we get the Phia design-token file (colours, type, spacing) to theme the prototype?
+3. Can we get provisioned-teacher counts per account per period — and per segment, or only per board?
+4. How many months of *consistent* product-event history exist?
+5. Is campaign ops able to reserve a randomised holdout before send?
+6. Can we get the Phia design-token file to theme the prototype?
 7. For how many accounts is board-level data actually populated?
-8. Which behaviour does PMM want as the adoption "aha"? Recommended: class created OR assignment created.
+
+~~8. Which behaviour is the adoption "aha"?~~ **Settled:** class created OR assignment created. Implemented and ratified by PMM.
 
 ---
 
@@ -368,8 +414,8 @@ The statistical fixes changed the math but not the explanation. `MethodologyModa
 
 | Document | Where | What it covers |
 |---|---|---|
+| Data Requirements | `docs/DATA-REQUIREMENTS.md` | Field-by-field ask for the BI team, tiered Track A / Track B |
 | PRD and Prototype Plan | `docs/Edwin_PMM_Dashboard_PRD_and_Prototype_Plan.md` | Full 8-phase product spec |
-| Data Requirements | `docs/DATA-REQUIREMENTS.md` | Field-by-field ask for the Edwin BI team, tiered Track A / Track B |
 | Phase C prototype | `docs/PHASE-C_EdwinExecutiveOverview.jsx` | Original single-file prototype (historical) |
 | Edwin Product Vision | Project knowledge: `HEREdwin_Product_Vision___for_Internal_Use_Only240326181557.pdf` | OKRs, strategic pillars, the J1-J5 onboarding journeys |
 | Unified Product Strategy Roadmap | Project knowledge: `Unified_Product_Strategy_Roadmap_2025.pdf` | Modular Platform migration, FY27 targets |
@@ -379,10 +425,14 @@ The statistical fixes changed the math but not the explanation. `MethodologyModa
 
 ## For anyone picking this up
 
-The prototype is a working React app with real interactive charts, not a mockup or a slide deck. It demonstrates the concept convincingly enough to socialize internally, but it runs on synthetic data. The statistical issues found in code review are fixed and regression-tested; the remaining barrier to real numbers is the data layer itself (see "Known issues").
+The prototype is a working React app with real interactive charts, not a mockup or a slide deck. It runs on synthetic data by default, and it will run on real data the moment someone hands you a CSV — go to `/data`, drop the files in, and the validation report will tell you what they support before anything renders.
 
-The architecture is sound and was independently verified: clean TypeScript, clean build, no ground-truth leaks in the analytics layer (aside from the two documented in the fix brief), and no metric computation in the UI. The layer separation means swapping synthetic data for real data should not require touching the analytics or UI code, provided the new adapter honours the schema.
+Two things are worth understanding before changing anything:
 
-The seasonal adjustment is the core value proposition. "Your September spike is 90% calendar" is a more defensible and more durable position than "our campaign drove the September spike." Lead with that in any socialization meeting.
+**The null test is the contract.** `npm run null-test` produces byte-stable output from a seeded generator. If a diff appears, the behaviour changed — that is a feature, and it is what made a 30-file data-layer refactor safe to perform in one pass. Run it before and after any analytics work.
 
-The dashboard will get quieter after the fixes. That is the correct outcome.
+**The barriers are mechanical now.** The project spent its whole life asserting in prose that analytics must not read the generator, and the seat curve leaked into six files anyway. `npm run check:layers` turns that assertion into a build failure. Don't route around it.
+
+The seasonal adjustment is the core value proposition. *"Your September spike is 90% calendar"* is a more defensible and more durable position than *"our campaign drove the September spike."* Lead with that in any socialization meeting.
+
+The dashboard is deliberately quiet — it suppresses more than it reports, and every suppressed figure says why. That is the correct outcome, and it is the main thing to explain to anyone who expects a dashboard full of green arrows.
