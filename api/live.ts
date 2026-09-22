@@ -44,9 +44,14 @@ async function same(a: string, b: string): Promise<boolean> {
   return diff === 0;
 }
 
+/* A store connected the current way exposes BLOB_STORE_ID and authenticates
+   with the function's short-lived OIDC token, which @vercel/blob reads from
+   the request context itself; older connections expose a static
+   BLOB_READ_WRITE_TOKEN. Either one means a store is attached. */
 function configured(name: "LIVE_VIEW_PASSWORD" | "LIVE_PUBLISH_PASSWORD"): string | null {
   const v = process.env[name];
-  return v && process.env.BLOB_READ_WRITE_TOKEN ? v : null;
+  const store = process.env.BLOB_STORE_ID || process.env.BLOB_READ_WRITE_TOKEN;
+  return v && store ? v : null;
 }
 
 export async function GET(request: Request): Promise<Response> {

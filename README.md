@@ -51,12 +51,12 @@ function with Vercel Blob for Live data
     for everyone.
 - **Where the data lives.** This repository is public, so real Edwin figures are never committed or
   bundled. Published data is one private Vercel Blob object (`live/edwin-live.json`), read only by
-  `api/live.ts` with the store's server-side token and returned only for the correct password.
+  `api/live.ts` with the function's server-side store credentials and returned only for the correct password.
 
 ### One-time Vercel setup
 
 1. In the Vercel project, **Storage → Create → Blob**, choose **private** access, and connect it to
-   this project. That adds `BLOB_READ_WRITE_TOKEN` automatically.
+   this project. That adds `BLOB_STORE_ID` (older stores add `BLOB_READ_WRITE_TOKEN` instead).
 2. **Settings → Environment Variables**, for Production and Preview:
    - `LIVE_VIEW_PASSWORD` — shared with anyone who should see Live
    - `LIVE_PUBLISH_PASSWORD` — kept by the owner; allows replacing Live data
@@ -143,7 +143,7 @@ npm run gen:requirements # regenerate docs/DATA-REQUIREMENTS.md from the CSV sch
 ```
 
 `npm run dev` has no serverless functions, so Live reports that the service is not running. To use
-Live locally, run `vercel dev` with the project linked and the three environment variables pulled
+Live locally, run `vercel dev` with the project linked and its environment variables pulled
 (`vercel env pull`).
 
 `npm run null-test` is the regression gate for any analytics change. It sweeps launch dates in a
