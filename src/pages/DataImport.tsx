@@ -9,8 +9,10 @@
    absent, and whether campaign reach exists — rather than discovering it from
    a dashboard full of empty states.
 
-   Files never leave the browser. Nothing is uploaded, committed, or deployed,
-   which matters because this repository is public.
+   Preview keeps files in the browser: nothing is uploaded, committed, or
+   deployed, which matters because this repository is public. Publishing is
+   the one deliberate exception — it sends the parsed exports to the private
+   store behind /api/live, gated by the publish password, and never to the repo.
 =========================================================================== */
 import { useState } from "react";
 import { T } from "../theme/tokens";
@@ -25,7 +27,9 @@ import {
   type InputFiles,
 } from "../data/file/load";
 import { DAILY_FACTS, CAMPAIGNS_TABLE, CAMPAIGN_REACH, RELEASES_TABLE } from "../data/file/schema";
-import { saveImport, clearImport } from "../data/file/persist";
+import { saveImport } from "../data/file/persist";
+import { publishLive } from "../data/live";
+import { fmtShort } from "../lib/dates";
 import { usageFromMarkdown, campaignsFromWorkbook } from "../data/file/edwin";
 import { int } from "../analytics/format";
 import { METRIC_LABEL } from "../analytics/constants";
@@ -100,9 +104,13 @@ function TableCard({ spec, file, onPick }: { spec: TableSpec; file?: File; onPic
 
 function Report({ report, raw }: { report: ValidationReport; raw: InputFiles | null }) {
   const s = report.summary;
-  const swap = useDataSource((x) => x.swap);
+  const preview = useDataSource((x) => x.preview);
+  const toLive = useDataSource((x) => x.toLive);
   const [swapped, setSwapped] = useState(false);
   const [persistWarning, setPersistWarning] = useState<string | null>(null);
+  const [adminPw, setAdminPw] = useState("");
+  const [publishing, setPublishing] = useState(false);
+  const [published, setPublished] = useState<{ ok: boolean; message: string } | null>(null);
 
   return (
     <div className="flex flex-col gap-4">
@@ -205,29 +213,94 @@ function Report({ report, raw }: { report: ValidationReport; raw: InputFiles | n
 
       {report.usable && report.source && (
         <Card className="p-5">
+          <h3 className="text-xs font-extrabold uppercase" style={{ color: T.navy, letterSpacing: "0.06em" }}>
+            Preview in this tab
+          </h3>
           <button
             onClick={() => {
-              swap(report.source!);
+              preview(report.source!);
               setSwapped(true);
               if (raw) {
                 const r = saveImport(raw);
                 setPersistWarning(r.ok ? null : r.reason ?? null);
               }
             }}
-            className="rounded px-4 py-2 text-sm font-bold"
+            className="mt-2 rounded px-4 py-2 text-sm font-bold"
             style={{ color: T.surface, background: swapped ? T.good : T.blue }}
           >
-            {swapped ? "Dashboard is using this data" : "Use this data in the dashboard"}
+            {swapped ? "Previewing this data" : "Preview in this tab"}
           </button>
           <p className="mt-2 text-xs" style={{ color: T.soft, lineHeight: 1.6 }}>
-            Swapping replaces the synthetic generator everywhere at once. The gate thresholds
-            (minimum sample and activity volume) were calibrated against synthetic magnitudes, so
-            expect to re-tune them against the real noise floor before trusting any verdict.
+            Replaces the dashboard's data in this tab only. Nothing is uploaded, and choosing Sample
+            or Live in the rail leaves the preview. The gate thresholds (minimum sample and activity
+            volume) were calibrated against synthetic magnitudes, so expect to re-tune them against
+            the real noise floor before trusting any verdict.
           </p>
           {persistWarning && (
             <p className="mt-2 text-xs" style={{ color: T.warn, lineHeight: 1.6 }}>
               {persistWarning}
             </p>
+          )}
+
+          {raw && (
+            <div className="mt-5 pt-4" style={{ borderTop: `1px solid ${T.border}` }}>
+              <h3 className="text-xs font-extrabold uppercase" style={{ color: T.navy, letterSpacing: "0.06em" }}>
+                Publish as Live
+              </h3>
+              <p className="mt-1 text-xs" style={{ color: T.soft, lineHeight: 1.6 }}>
+                Replaces what Live shows for everyone with the Live password. The data goes to a
+                private store on the dashboard's host — never to the public repository.
+              </p>
+              <form
+                className="mt-2 flex flex-wrap items-center gap-2"
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  if (!adminPw || publishing) return;
+                  setPublishing(true);
+                  setPublished(null);
+                  const r = await publishLive(raw, adminPw);
+                  setPublishing(false);
+                  if (!r.ok) {
+                    setPublished({ ok: false, message: r.message });
+                    return;
+                  }
+                  setAdminPw("");
+                  setPublished({
+                    ok: true,
+                    message: `Published ${fmtShort(r.publishedAt.slice(0, 10))}. The dashboard is now on Live.`,
+                  });
+                  void toLive();
+                }}
+              >
+                <input
+                  type="password"
+                  value={adminPw}
+                  onChange={(e) => setAdminPw(e.target.value)}
+                  aria-label="Publish password"
+                  placeholder="Publish password"
+                  autoComplete="off"
+                  className="rounded px-2 py-1 text-sm"
+                  style={{ border: `1px solid ${T.border}`, color: T.ink, background: T.surface }}
+                />
+                <button
+                  type="submit"
+                  disabled={!adminPw || publishing}
+                  className="rounded px-4 py-2 text-sm font-bold"
+                  style={{
+                    color: T.surface,
+                    background: adminPw && !publishing ? T.navy : T.muted,
+                    cursor: adminPw && !publishing ? "pointer" : "not-allowed",
+                  }}
+                >
+                  {publishing ? "Publishing…" : "Publish as Live"}
+                </button>
+              </form>
+              {published && (
+                <p className="mt-2 text-xs" style={{ color: published.ok ? T.good : T.warn, lineHeight: 1.6 }}>
+                  {published.message}
+                </p>
+              )}
+            </div>
           )}
         </Card>
       )}
@@ -371,7 +444,7 @@ export default function DataImport() {
   // Keep the raw text so a successful import can be persisted for the session.
   const [raw, setRaw] = useState<InputFiles | null>(null);
   const [busy, setBusy] = useState(false);
-  const { sourceId, label, reset } = useDataSource();
+  const { label, mode, live, toSample } = useDataSource();
 
   const ready = TABLES.filter((t) => t.required).every((t) => files[t.file]);
 
@@ -383,13 +456,22 @@ export default function DataImport() {
         </h2>
         <div className="mt-2 flex flex-wrap items-center gap-3">
           <span className="text-lg font-extrabold" style={{ color: T.ink }}>
-            {label}
+            {/* The synthetic source sits underneath an unloaded Live; never name it as Live's. */}
+            {mode === "live" && live.status !== "ready" ? "No live data loaded" : label}
           </span>
-          {sourceId !== "synthetic" && (
+          <Chip tone={mode === "sample" ? "muted" : mode === "live" ? "good" : "warn"}>
+            {mode === "sample"
+              ? "Sample"
+              : mode === "preview"
+              ? "Preview — unpublished"
+              : live.status === "ready"
+              ? `Live${live.publishedAt ? ` · published ${fmtShort(live.publishedAt.slice(0, 10))}` : ""}`
+              : "Live — not loaded"}
+          </Chip>
+          {mode !== "sample" && (
             <button
               onClick={() => {
-                clearImport();
-                reset();
+                toSample();
                 setReport(null);
                 setRaw(null);
                 setFiles({});
@@ -397,15 +479,22 @@ export default function DataImport() {
               className="rounded px-2 py-1 text-xs font-semibold"
               style={{ color: T.blue, border: `1px solid ${T.blue}55`, background: T.surface }}
             >
-              Revert to synthetic
+              Switch to Sample
             </button>
           )}
         </div>
+        {mode === "live" && live.status !== "ready" && live.message && (
+          <p className="mt-2 text-xs" style={{ color: T.warn, lineHeight: 1.6 }}>
+            {live.message}
+          </p>
+        )}
         <p className="mt-2 text-xs" style={{ color: T.soft, lineHeight: 1.6 }}>
-          Files are read in your browser and never uploaded, committed, or deployed. This repository is
-          public, so real Edwin numbers must not be added to it — importing here keeps them on your
-          machine. A successful import is kept in this tab's session storage, so it survives a reload
-          and is discarded when you close the tab.
+          Files are read in your browser. <b style={{ color: T.ink }}>Preview</b> keeps them in this
+          tab's session storage — nothing is uploaded, it survives a reload, and it is discarded when
+          you close the tab. <b style={{ color: T.ink }}>Publish as Live</b> sends the parsed exports
+          to a private, password-protected store so anyone with the Live password sees them. Neither
+          ever touches this repository, which is public, so real Edwin numbers must not be committed
+          to it.
         </p>
       </Card>
 

@@ -4,7 +4,7 @@
 import { NavLink } from "react-router-dom";
 import { T } from "../theme/tokens";
 import { NAV } from "./nav";
-import { src } from "../data/source";
+import { SourceToggle } from "./SourceToggle";
 
 export function Rail() {
   return (
@@ -41,13 +41,17 @@ export function Rail() {
           </NavLink>
         ))}
       </div>
-      <div
-        className="mt-auto px-5 py-4 text-xs"
-        style={{ color: "rgba(255,255,255,.35)", lineHeight: 1.6 }}
-      >
-        {src().id === "synthetic" ? "Prototype · synthetic data" : src().label}
-        <br />
-        {src().id === "synthetic" ? "Phases C–G of 7" : "Real data"}
+      <div className="mt-auto px-5 py-4">
+        <div
+          className="mb-2 text-xs font-semibold uppercase"
+          style={{ color: "rgba(255,255,255,.35)", letterSpacing: "0.08em" }}
+        >
+          Data
+        </div>
+        <SourceToggle />
+        <div className="mt-3 text-xs" style={{ color: "rgba(255,255,255,.35)" }}>
+          v{__APP_VERSION__}
+        </div>
       </div>
     </nav>
   );

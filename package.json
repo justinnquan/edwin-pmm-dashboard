@@ -1,12 +1,12 @@
 {
   "name": "edwin-pmm-dashboard",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsx scripts/check-layers.ts && tsc --noEmit && vite build",
-    "typecheck": "tsc --noEmit",
+    "build": "tsx scripts/check-layers.ts && tsc --noEmit && tsc --noEmit -p tsconfig.api.json && vite build",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.api.json",
     "null-test": "tsx scripts/null-test.ts",
     "preview": "vite preview",
     "check:layers": "tsx scripts/check-layers.ts",
@@ -15,6 +15,7 @@
   },
   "dependencies": {
     "@types/papaparse": "^5.5.2",
+    "@vercel/blob": "^2.8.0",
     "papaparse": "^5.7.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
