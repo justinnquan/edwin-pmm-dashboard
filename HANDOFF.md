@@ -48,7 +48,8 @@ npm run gen:requirements # regenerate docs/DATA-REQUIREMENTS.md from the CSV sch
 
 | File | What it is |
 |---|---|
-| `HANDOFF.md` | This file. Start here. |
+| `HANDOFF.md` | This file. The reference doc — architecture, files, metrics, what to ask for. Start here. |
+| `HANDOFFV2.md` | The record of the 21–22 Sept 2026 session: what was attempted, what shipped, what had to be redone, and what was discovered by running the app. Read it when you want the reasoning rather than the current state. |
 | `docs/DATA-REQUIREMENTS.md` | Field-by-field ask for the Edwin BI team, tiered into Track A / Track B. **Generated** from `src/data/file/schema.ts`, so it cannot drift from what the app accepts. |
 | `docs/Edwin_PMM_Dashboard_PRD_and_Prototype_Plan.md` | The full 8-phase PRD: critical assessment, requirements, information architecture, KPI framework, data model, mockup spec, build plan, open questions. The design bible. |
 | `docs/PHASE-C_EdwinExecutiveOverview.jsx` | The original Phase C single-file prototype. Superseded, kept for historical reference. |
