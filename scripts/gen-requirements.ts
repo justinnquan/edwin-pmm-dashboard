@@ -79,10 +79,29 @@ const doc = `# Edwin PMM Dashboard — Data Requirements
 
 ## What we are asking for
 
-A working prototype dashboard exists. It runs today on synthetic data and has a
-built-in importer that accepts the four CSV files described below. **We are not
-asking for an integration.** We are asking whether these shapes can be produced,
-and at what cost — starting with a one-off export we can load by hand.
+**We already load two real Edwin exports.** The weekly usage rollup from Power BI
+and the Pardot / YesWare / in-app campaign workbook both import into the
+dashboard as they are kept today — 48 weeks of usage and 67 campaigns, covering
+August 2025 to June 2026.
+
+So this is not a request to start from nothing. It is a request for **four
+specific changes to a report that already exists**, each of which unlocks a
+named part of the dashboard that is currently dark.
+
+**We are not asking for an integration.** A periodic export we load by hand is
+enough.
+
+### The four changes, in priority order
+
+| # | Change | What it unlocks | Currently |
+|---|---|---|---|
+| 1 | **The previous school year (2024-25) as well** | Seasonal adjustment — the dashboard's core method | Every adjusted figure is suppressed. With one school year there is no prior year to compare against, so all we can show is a raw before/after, which in a K-12 product says more about the month than about the campaign. |
+| 2 | **Licensed seats per period**, not cumulative logins | The north-star active-teacher rate, both OKR gauges, the activation funnel | The column we have is a running total of teachers who have *ever* logged in (63 → 10,220 across the year). It never sheds anyone, so a rate built on it falls every week regardless of behaviour — engagement rose 37% between September and April while that rate fell 11 points. The dashboard therefore refuses to compute it. |
+| 3 | **Daily rows**, not weekly | Day-of-week handling and the uncertainty band | Weekly rows are expanded across their seven days, which leaves no within-week variation, so no error can be estimated and materiality falls back to a flat 5% floor. |
+| 4 | **Split by province / grade / subject** | Segment comparison, opportunity ranking, campaign targeting | Every figure is platform-wide. Campaign audiences are already recorded — the campaign names encode ON/AB and Primary through Secondary — so targeting starts working the moment the *usage* side is broken down. |
+
+Everything below describes the full contract for completeness. Items 1 and 2 are
+the ones that change what the dashboard can say.
 
 The dashboard has a **Data Import** page that will score any export against this
 specification and report exactly what is missing, what is unusable, and what it
@@ -122,7 +141,7 @@ ${TABLES.map(table).join("\n")}
 
 ---
 
-## Three things that will otherwise bite us
+## Four things that will otherwise bite us
 
 These are the questions most likely to produce data that looks right and is
 wrong. Worth settling before anyone writes a query.
@@ -155,7 +174,20 @@ Per-campaign counts cannot produce that union. Either supply a pre-computed
 distinct count per campaign *set*, or tell us and we will label the roll-up as
 possibly double-counting.
 
-### 3. Provisioned seats may not exist per segment
+### 3. A cumulative login count is not a denominator
+
+The usage export's *Total Logged-in Teachers* column only ever rises, because it
+counts everyone who has ever logged in. Used as the denominator of an activity
+rate it produces a number that falls every week while the product grows, because
+the teachers who tried Edwin once in September stay in it forever.
+
+This is not a rounding concern. Scaling last year's baseline by that column's
+growth would set this September's expected weekly-active figure at roughly
+4,100 against last September's actual of 2,018, so every week of the new school
+year would render as a large decline. The dashboard detects the pattern and
+refuses both the rate and the rescale — but the fix is a real licence count.
+
+### 4. Provisioned seats may not exist per segment
 
 \`provisioned\` is the denominator for the north-star active-teacher rate and the
 rescale for every year-over-year comparison. If Edwin licences are counted by

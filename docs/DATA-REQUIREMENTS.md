@@ -13,10 +13,29 @@
 
 ## What we are asking for
 
-A working prototype dashboard exists. It runs today on synthetic data and has a
-built-in importer that accepts the four CSV files described below. **We are not
-asking for an integration.** We are asking whether these shapes can be produced,
-and at what cost — starting with a one-off export we can load by hand.
+**We already load two real Edwin exports.** The weekly usage rollup from Power BI
+and the Pardot / YesWare / in-app campaign workbook both import into the
+dashboard as they are kept today — 48 weeks of usage and 67 campaigns, covering
+August 2025 to June 2026.
+
+So this is not a request to start from nothing. It is a request for **four
+specific changes to a report that already exists**, each of which unlocks a
+named part of the dashboard that is currently dark.
+
+**We are not asking for an integration.** A periodic export we load by hand is
+enough.
+
+### The four changes, in priority order
+
+| # | Change | What it unlocks | Currently |
+|---|---|---|---|
+| 1 | **The previous school year (2024-25) as well** | Seasonal adjustment — the dashboard's core method | Every adjusted figure is suppressed. With one school year there is no prior year to compare against, so all we can show is a raw before/after, which in a K-12 product says more about the month than about the campaign. |
+| 2 | **Licensed seats per period**, not cumulative logins | The north-star active-teacher rate, both OKR gauges, the activation funnel | The column we have is a running total of teachers who have *ever* logged in (63 → 10,220 across the year). It never sheds anyone, so a rate built on it falls every week regardless of behaviour — engagement rose 37% between September and April while that rate fell 11 points. The dashboard therefore refuses to compute it. |
+| 3 | **Daily rows**, not weekly | Day-of-week handling and the uncertainty band | Weekly rows are expanded across their seven days, which leaves no within-week variation, so no error can be estimated and materiality falls back to a flat 5% floor. |
+| 4 | **Split by province / grade / subject** | Segment comparison, opportunity ranking, campaign targeting | Every figure is platform-wide. Campaign audiences are already recorded — the campaign names encode ON/AB and Primary through Secondary — so targeting starts working the moment the *usage* side is broken down. |
+
+Everything below describes the full contract for completeness. Items 1 and 2 are
+the ones that change what the dashboard can say.
 
 The dashboard has a **Data Import** page that will score any export against this
 specification and report exactly what is missing, what is unusable, and what it
@@ -60,24 +79,25 @@ Everything on the dashboard. Thirteen or more months of it makes the seasonal ba
 
 | Column | Type | Required | Why the dashboard needs it |
 |---|---|---|---|
-| `date` | Date (`YYYY-MM-DD`) | **Yes** | ISO YYYY-MM-DD, interpreted as UTC. |
-| `province` | Text | **Yes** | Must match the dimension vocabulary exactly. |
-| `grade` | Text | **Yes** | Must match the dimension vocabulary exactly. |
-| `subject` | Text | **Yes** | Must match the dimension vocabulary exactly. |
-| `provisioned` | Integer | **Yes** | The denominator for the north-star active teacher rate, and the rescale for year-over-year comparison. Without it no rate on the dashboard is trustworthy. |
-| `daily_active` | Integer | **Yes** | Drives the activity-volume gate that stops low-volume windows being compared. |
+| `date` | Date (`YYYY-MM-DD`) | **Yes** | ISO YYYY-MM-DD, interpreted as UTC. Use a week_starting column instead if the export is weekly — the loader detects the grain and reports which it found. |
+| `province` | Text | No | Must match the vocabulary used in campaigns.csv. Omit all three segment columns for a platform-wide export; segment views then report that this source carries no segmentation. |
+| `grade` | Text | No | Segment key. See province. |
+| `subject` | Text | No | Segment key. See province. |
+| `provisioned` | Integer | No | Teachers holding a licence on that date — a stock, not a running total. The denominator for the north-star rate and the year-over-year rescale. A cumulative 'ever logged in' count is NOT a substitute: it never sheds anyone, so every rate built on it declines regardless of behaviour. Supply that as a cumulative_logins column instead and it will be charted rather than divided by. |
+| `daily_active` | Integer | No | Drives the activity-volume gate that stops low-volume windows being compared. If absent the gate falls back to weekly actives — it is never synthesised from a weekly figure, because dividing a weekly distinct count by seven understates it and repeating it overstates it. |
 | `wau` | Integer | **Yes** | Distinct teachers active in a rolling 7 days. The north-star numerator. |
 | `resource_opens` | Integer | No | The default engagement metric for campaign impact. |
 | `classes_created` | Integer | No | Half of the adoption 'aha'. |
 | `assignments_created` | Integer | No | The other half of the adoption 'aha'. |
 | `aha_users` | Integer | No | Distinct teachers who created a class OR an assignment. Not derivable by adding the two columns above — the same teacher may do both. |
+| `cumulative_logins` | Integer | No | Running total of distinct teachers who have ever logged in. Charted as an adoption curve; deliberately never used as a denominator, because a figure that never sheds anyone makes every rate built on it fall regardless of behaviour. |
 | `retention_w4` | Decimal 0–1 | No | A rate between 0 and 1, not a count. Share of a start cohort still active four weeks later. |
 
 Example row:
 
 ```csv
-date,province,grade,subject,provisioned,daily_active,wau,resource_opens,classes_created,assignments_created,aha_users,retention_w4
-2025-09-02,ON,Primary (1–3),Mathematics,2145,912,1404,3388,18,310,486,0.51
+date,province,grade,subject,provisioned,daily_active,wau,resource_opens,classes_created,assignments_created,aha_users,cumulative_logins,retention_w4
+2025-09-02,ON,Primary (1–3),Mathematics,2145,912,1404,3388,18,310,486,,0.51
 ```
 
 ### `campaigns.csv`
@@ -97,6 +117,7 @@ Campaign markers, channel metrics, and every attribution view.
 | `sends` | Integer | **Yes** | Denominator for CTR. |
 | `opens` | Integer | No | Leave blank for channels with no open concept — in-app notifications and release notes. A blank suppresses CTOR rather than reporting a meaningless one. |
 | `clicks` | Integer | **Yes** | Numerator for CTR. |
+| `recipients` | Integer | No | Distinct people the campaign actually reached — Pardot's Total Delivered will do. Used only as the sample size that lets a result clear the minimum-N gate, and labelled as recipients rather than verified teachers, since without an identity join we cannot confirm they are the same people the product data counts. |
 | `objective_metric` | Enum | **Yes** | One of: wau, resourceOpens, assignmentsCreated, classesCreated, ahaUsers. The metric the campaign was authored to move, declared before send. This replaces picking each campaign's best-looking result after the fact. |
 | `target_province` | Pipe-delimited list | No | Pipe-delimited. Blank means all. |
 | `target_grade` | Pipe-delimited list | No | Pipe-delimited. Blank means all. |
@@ -105,8 +126,8 @@ Campaign markers, channel metrics, and every attribution view.
 Example row:
 
 ```csv
-campaign_id,name,type,channel,launch_date,audience,sends,opens,clicks,objective_metric,target_province,target_grade,target_subject
-c-bts,Back to School 2026 — Ready Day One,Pardot email,Pardot email,2026-08-10,All teachers,27800,13344,2613,wau,,,
+campaign_id,name,type,channel,launch_date,audience,sends,opens,clicks,recipients,objective_metric,target_province,target_grade,target_subject
+c-bts,Back to School 2026 — Ready Day One,Pardot email,Pardot email,2026-08-10,All teachers,27800,13344,2613,26910,wau,,,
 ```
 
 ### `campaign_reach.csv`
@@ -151,7 +172,7 @@ date,name
 
 ---
 
-## Three things that will otherwise bite us
+## Four things that will otherwise bite us
 
 These are the questions most likely to produce data that looks right and is
 wrong. Worth settling before anyone writes a query.
@@ -184,7 +205,20 @@ Per-campaign counts cannot produce that union. Either supply a pre-computed
 distinct count per campaign *set*, or tell us and we will label the roll-up as
 possibly double-counting.
 
-### 3. Provisioned seats may not exist per segment
+### 3. A cumulative login count is not a denominator
+
+The usage export's *Total Logged-in Teachers* column only ever rises, because it
+counts everyone who has ever logged in. Used as the denominator of an activity
+rate it produces a number that falls every week while the product grows, because
+the teachers who tried Edwin once in September stay in it forever.
+
+This is not a rounding concern. Scaling last year's baseline by that column's
+growth would set this September's expected weekly-active figure at roughly
+4,100 against last September's actual of 2,018, so every week of the new school
+year would render as a large decline. The dashboard detects the pattern and
+refuses both the rate and the rescale — but the fix is a real licence count.
+
+### 4. Provisioned seats may not exist per segment
 
 `provisioned` is the denominator for the north-star active-teacher rate and the
 rescale for every year-over-year comparison. If Edwin licences are counted by

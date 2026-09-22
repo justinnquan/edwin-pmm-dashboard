@@ -2,7 +2,7 @@
 
 **Owner:** Justin Quan, Product Marketing Manager, Nelson Education
 **Last updated:** September 22, 2026
-**Status:** Prototype complete. Statistical fixes landed and regression-gated. The real-data seam is built and proven — the dashboard has run end to end on an imported CSV. Not yet connected to real Edwin data, because that data has not been requested yet.
+**Status:** Running on **real Edwin data**. The 25/26 weekly usage rollup and the Pardot / YesWare / in-app campaign workbook both import as they are kept — 48 weeks and 67 campaigns. Seasonal adjustment is not yet possible because there is no prior year; see "What the real data can and cannot do".
 
 ---
 
@@ -12,7 +12,7 @@ A SaaS-style Product Marketing analytics dashboard for Edwin, Nelson Education's
 
 The central question it answers: **Are our lifecycle marketing efforts moving teachers from awareness to activation to engagement to adoption to retention, and where should we act next?**
 
-It ships with seeded synthetic data and can be swapped onto real data through an in-app CSV import. Synthetic figures are illustrative and must not be quoted as Edwin performance.
+It ships with seeded synthetic data and swaps onto real data through the in-app import on `/data`. Synthetic figures are illustrative and must not be quoted as Edwin performance; the page states which of the two is loaded rather than leaving a standing "prototype" caveat over real numbers.
 
 ---
 
@@ -92,7 +92,7 @@ src/
 Everything above `/data` consumes a single interface, `DataSource` (`src/data/schema.ts`). There are two implementations, and no consumer can tell which one it has:
 
 - `createSyntheticSource()` (`src/data/synthetic.ts`) wraps the seeded generator.
-- `buildFileSource()` (`src/data/file/load.ts`) parses uploaded CSV.
+- `buildFileSource()` (`src/data/file/load.ts`) parses uploaded CSV — or rows already parsed from a markdown table or an Excel workbook, so every format shares one set of validations.
 
 `src/data/source.ts` holds the active one as a module singleton, reached with `src()` and replaced with `setSource()`. A module singleton was chosen over threading a parameter (which would churn ~25 signatures and ~80 call sites) and over React context (impossible — the analytics functions are plain functions, and the null-test harness runs them in Node with no React).
 
@@ -120,6 +120,9 @@ Adding a Power BI or API source means writing one more implementation of that in
 | `file/schema.ts` | **Single source of truth for the CSV contract.** Drives the downloadable templates, the import validator, and the generated requirements doc, so the three cannot disagree. |
 | `file/load.ts` | CSV → `DataSource`, plus the validation report. Async only at the boundary; the source it produces is fully synchronous. |
 | `file/persist.ts` | sessionStorage persistence so an import survives a page reload. Tab-scoped, cleared on close. |
+| `file/markdown.ts` | Parses Obsidian / GitHub pipe tables, so the usage rollup loads without being re-keyed into CSV. |
+| `file/xlsx.ts` | Reads an Excel workbook with no dependency — an .xlsx is a ZIP of XML and the browser can inflate. Encodes two traps that produce silently wrong data rather than errors: self-closing `<c .../>` cells shift every column left under naive pairing, and `t="s"` cells are shared-string indices. |
+| `file/edwin.ts` | Maps both real exports onto the CSV column contract, so all of the loader's validation applies unchanged. |
 | `calendar.ts` | **Ground truth.** Seasonal model, deterministic RNG, provisioned-seat curve. Unreachable above `/data`, enforced by `npm run check:layers`. |
 | `campaigns.ts` | Campaign definitions and `campaignMultiplier`. Contains `effects` (ground truth). |
 | `segments.ts` | Province, grade, subject and cell definitions with weights and engagement multipliers. |
@@ -169,7 +172,7 @@ Adding a Power BI or API source means writing one more implementation of that in
 | `CampaignImpact.tsx` | `/campaign/:id` | Campaign drill-down: summary, product impact, before/after with uncertainty, targeted vs. rest of platform, cohort progression, interpretation. |
 | `ActivityTimeline.tsx` | `/timeline` | Multi-lane timeline with campaign/release markers and selectable metric lanes. |
 | `AdoptionEngagement.tsx` | `/adoption` | J1–J5 activation funnel, Day-7 and monthly-active OKR gauges, feature adoption bars. |
-| `Segments.tsx` | `/segments` | Segment comparison across province/grade/subject, opportunity ranking. PMM view only. |
+| `Segments.tsx` | `/segments` | Segment comparison across province/grade/subject, opportunity ranking. PMM view only. Reports plainly when the source carries no segmentation. |
 | `CampaignCalendar.tsx` | `/calendar` | Month-by-month campaign calendar with product event overlay. |
 | `DataImport.tsx` | `/data` | **Load real data.** Drop CSVs, get a validation report saying exactly what they can and cannot support, then swap the dashboard onto them. Includes downloadable templates. |
 
@@ -180,6 +183,39 @@ Adding a Power BI or API source means writing one more implementation of that in
 | `check-layers.ts` | Fails the build if anything under `analytics`, `components`, `pages`, `state` or `lib` imports a generator module. |
 | `export-sample.ts` | Writes the synthetic data out in the real CSV contract, reads it back, and compares. A round-trip test of the file adapter, and a concrete example file to hand the BI team. |
 | `gen-requirements.ts` | Regenerates `docs/DATA-REQUIREMENTS.md` from the CSV schema. |
+
+---
+
+## What the real data can and cannot do
+
+Two real exports load today, through the **Load your Edwin exports** card on `/data`:
+
+| File | What it is | What it gives |
+|---|---|---|
+| `Edwin Metrics 25-26 School Year.md` | Power BI weekly rollup, kept in an Obsidian vault. Aug 3 2025 → Jun 28 2026. | Weekly engaged teachers (→ `wau`) and a cumulative ever-logged-in count. 48 weeks. |
+| `Marketing Communications Metrics.xlsx` | Pardot / YesWare / in-app notification workbook. | 67 campaigns, Sept 10 2025 → Mar 9 2026, with delivered, opens, clicks, CTR and click-to-open. |
+
+Every campaign date falls inside the usage window, so before/after windows compute against real numbers.
+
+**Works now:** real weekly-active trend, all 67 campaigns with their real channel metrics, campaign drill-downs, the calendar and timeline. The in-app notification sheet also retires the top risk this document used to carry — those notifications *are* instrumented.
+
+**Does not work, and why:**
+
+- **No seasonal adjustment.** One school year means no prior year to compare against. 336 days; 374 are needed. Every adjusted figure is suppressed rather than shown as a raw one wearing an adjusted label.
+- **No active-teacher rate, no OKR gauges, no activation funnel.** The only denominator in the file is a cumulative login count, which is not a licence count. See the P0 below.
+- **No segment views.** The usage export is platform-wide. Campaign audiences *are* recorded — the names encode ON/AB and Primary through Secondary — so targeting will start working the moment the usage side is broken down.
+
+### P0 — a cumulative login count is not a denominator
+
+`Total Logged-in Teachers` rises monotonically, 63 → 10,220 across the year, because it counts everyone who has ever logged in and never sheds anyone. Used as the denominator of an activity rate it falls every week while the product grows: engagement rose 37% between September and April while that rate fell 11 points.
+
+Worse, the year-over-year rescale multiplies the prior-year baseline by that column's growth. Left alone it would set this September's expected weekly-active figure at roughly **4,100 against last September's actual of 2,018**, so every week of the new school year would render as a large decline.
+
+The loader now detects the pattern from the data — a series that never falls and grows steeply is a running total — sets `coverage.seatsAreStock = false`, and both the rate and the rescale are refused. **The fix is a real licensed-seat count**, which is request #2 in `docs/DATA-REQUIREMENTS.md`.
+
+### When 26/27 usage arrives
+
+25/26 becomes the prior-year baseline and the whole method switches on. That is the single highest-value thing to obtain, alongside 24/25 if it exists.
 
 ---
 
