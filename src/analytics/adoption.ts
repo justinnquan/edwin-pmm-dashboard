@@ -174,11 +174,17 @@ export interface FeatureAdoption {
 export function featureAdoption(ids: number[]): FeatureAdoption[] {
   const wau = windowMean("wau", ids, src().asOf, 7) ?? 0;
   const ahaNow = windowMean("ahaUsers", ids, src().asOf, 7) ?? 0;
-  const out: FeatureAdoption[] = [
-    { feature: "Resource library", reach: clamp(reachFrom(perActive("resourceOpens", ids, 30)), 0, 0.99) },
-    { feature: "Assignments", reach: clamp(reachFrom(perActive("assignmentsCreated", ids, 30)), 0, 0.99) },
-    { feature: "Classes", reach: clamp(reachFrom(perActive("classesCreated", ids, 30)), 0, 0.99) },
-    { feature: "Adoption (class or assignment)", reach: wau > 0 ? clamp(ahaNow / wau, 0, 0.99) : 0 },
-  ];
+  // A feature the source does not track is not a feature at 0% adoption. Each
+  // bar is dropped rather than drawn empty, because an explicit absence from
+  // the list reads correctly and a 0% bar reads as a finding.
+  const out: FeatureAdoption[] = [];
+  if (has("resourceOpens"))
+    out.push({ feature: "Resource library", reach: clamp(reachFrom(perActive("resourceOpens", ids, 30)), 0, 0.99) });
+  if (has("assignmentsCreated"))
+    out.push({ feature: "Assignments", reach: clamp(reachFrom(perActive("assignmentsCreated", ids, 30)), 0, 0.99) });
+  if (has("classesCreated"))
+    out.push({ feature: "Classes", reach: clamp(reachFrom(perActive("classesCreated", ids, 30)), 0, 0.99) });
+  if (has("ahaUsers") && wau > 0)
+    out.push({ feature: "Adoption (class or assignment)", reach: clamp(ahaNow / wau, 0, 0.99) });
   return out.sort((a, b) => b.reach - a.reach);
 }

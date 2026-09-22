@@ -4,19 +4,28 @@
 =========================================================================== */
 import type { ReactNode } from "react";
 import type { PublicCampaign, CampaignImpact, Metric } from "../data/schema";
+import { src } from "../data/source";
 import { T, num } from "../theme/tokens";
 import { MIN_N, METRIC_LABEL } from "../analytics/constants";
 import { pct } from "../analytics/format";
 import { campaignImpact } from "../analytics/attribution";
 
 /** The default metric set shown for a campaign's downstream product impact. */
-export const IMPACT_METRICS: Metric[] = [
+const ALL_IMPACT_METRICS: Metric[] = [
   "wau",
   "resourceOpens",
   "assignmentsCreated",
   "classesCreated",
   "ahaUsers",
 ];
+
+/** The impact metrics this source can actually answer for. Offering the rest
+    in a dropdown invites selecting one that can only report "not tracked". */
+export const impactMetrics = (): Metric[] =>
+  ALL_IMPACT_METRICS.filter((m) => src().coverage.metrics[m]);
+
+/** Every metric, regardless of source — for callers that need the full list. */
+export const IMPACT_METRICS = ALL_IMPACT_METRICS;
 
 /** Renders a single campaign-impact result: the adjusted % (coloured) or the
     honest gated reason it can't be shown. */
@@ -102,7 +111,7 @@ export function ProductImpactGrid({
   campaign,
   ids,
   windowDays,
-  metrics = IMPACT_METRICS,
+  metrics = impactMetrics(),
 }: {
   campaign: PublicCampaign;
   ids: number[];

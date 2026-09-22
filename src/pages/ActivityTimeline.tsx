@@ -29,13 +29,18 @@ import { typeColor, RELEASE_COLOR, CampaignTypeLegend } from "../components/camp
 
 const LEFT = 52; // must equal each lane's YAxis width
 const RIGHT = 16; // must equal each lane's right margin
-const TIMELINE_METRICS: Metric[] = [
+const ALL_TIMELINE_METRICS: Metric[] = [
   "wau",
   "resourceOpens",
   "assignmentsCreated",
   "classesCreated",
   "ahaUsers",
 ];
+
+/** Only the lanes this source can draw. Offering the rest gives the reader a
+    button that produces a flat zero line indistinguishable from a collapse. */
+const timelineMetrics = (): Metric[] =>
+  ALL_TIMELINE_METRICS.filter((m) => src().coverage.metrics[m]);
 
 const ms = (dateStr: string): number => new Date(dateStr + "T00:00:00Z").getTime();
 const insetLeft = (frac: number): CSSProperties => ({
@@ -177,7 +182,7 @@ export default function ActivityTimeline() {
           <span className="text-xs font-bold uppercase mr-1" style={{ color: T.muted, letterSpacing: "0.05em" }}>
             Metric lanes
           </span>
-          {TIMELINE_METRICS.map((m) => {
+          {timelineMetrics().map((m) => {
             const on = selected.includes(m);
             return (
               <button

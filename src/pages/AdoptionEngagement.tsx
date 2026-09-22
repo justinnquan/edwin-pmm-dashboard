@@ -33,7 +33,12 @@ export default function AdoptionEngagement() {
       funnel: activationFunnel(ids),
       gauges: activationGauges(ids),
       features: featureAdoption(ids),
-      trends: TREND_METRICS.map((m) => ({ metric: m, series: seriesFor(m, ids, from, src().asOf) })),
+      // Only chart metrics the source actually carries; the rest would draw a
+      // flat zero line indistinguishable from a real collapse.
+      trends: TREND_METRICS.filter((m) => src().coverage.metrics[m]).map((m) => ({
+        metric: m,
+        series: seriesFor(m, ids, from, src().asOf),
+      })),
     };
   }, [ids, range]);
 
@@ -113,10 +118,18 @@ export default function AdoptionEngagement() {
         <p className="mt-1 mb-4 text-xs" style={{ color: T.muted }}>
           Share of active teachers using each LMS feature in the last 30 days.
         </p>
-        <FeatureBars features={model.features} />
+        {model.features.length ? (
+          <FeatureBars features={model.features} />
+        ) : (
+          <Unavailable
+            title="No feature usage in this source"
+            detail="Every bar here counts a specific action — resource opens, classes created, assignments created. None of those columns are present, so there is nothing to measure. A bar at 0% would read as a finding rather than an absence."
+          />
+        )}
       </Card>
 
       {/* Behaviour trends */}
+      {model.trends.length > 0 && (
       <section>
         <div className="mb-3 flex items-center gap-3">
           <h2 className="text-sm font-extrabold uppercase" style={{ color: T.navy, letterSpacing: "0.07em" }}>
@@ -132,6 +145,7 @@ export default function AdoptionEngagement() {
           ))}
         </div>
       </section>
+      )}
     </div>
   );
 }

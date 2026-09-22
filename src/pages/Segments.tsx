@@ -9,6 +9,7 @@ import { src } from "../data/source";
 import { MIN_N } from "../analytics/constants";
 import { pct, pctAbs, int } from "../analytics/format";
 import { cellFilter } from "../analytics/kpis";
+import { Unavailable } from "../components/states";
 import {
   DIMENSIONS,
   segmentRows,
@@ -74,6 +75,27 @@ export default function Segments() {
 
   // Does any board/account dimension exist in the data? (It does not — surfaced honestly.)
   const hasBoardData = src().cells.some((c) => "board" in c);
+
+  // With one cell every dimension tab shows the same row, and that row is the
+  // platform total wearing a segment label. Saying so is more useful than
+  // three identical tables, and stops the gate message blaming a sample-size
+  // minimum for what is actually a missing breakdown.
+  const d = src().dimensions;
+  if (d.province.length <= 1 && d.grade.length <= 1 && d.subject.length <= 1) {
+    return (
+      <Card className="p-5">
+        <h2 className="text-sm font-extrabold uppercase" style={{ color: T.navy, letterSpacing: "0.07em" }}>
+          Segment comparison
+        </h2>
+        <div className="mt-3">
+          <Unavailable
+            title="This source has no segmentation"
+            detail="Every figure in it is platform-wide, so there is nothing to compare province against province or grade against grade. A daily export split by province, grade and subject restores this page, the opportunity ranking, and campaign targeting — the campaign audiences are already recorded and will apply the moment the usage side is broken down."
+          />
+        </div>
+      </Card>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-6">

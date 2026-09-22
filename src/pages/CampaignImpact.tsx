@@ -37,7 +37,7 @@ import {
 import { useFilters } from "../state/filterStore";
 import { T, num } from "../theme/tokens";
 import { Card, Chip } from "../components/primitives";
-import { ProductImpactGrid, IMPACT_METRICS } from "../components/ProductImpact";
+import { ProductImpactGrid, impactMetrics } from "../components/ProductImpact";
 
 const toneColor = { positive: T.good, negative: T.warn, watch: T.blue } as const;
 
@@ -94,6 +94,11 @@ function Detail({ campaign }: { campaign: PublicCampaign }) {
   const [metric, setMetric] = useState<Metric>(primaryMetric(campaign));
   const [localWin, setLocalWin] = useState<number>(win);
   const [adjust, setAdjust] = useState(true);
+  // A source with one cell cannot be split into targeted and rest, which is a
+  // different problem from a campaign that deliberately targeted everyone.
+  const dims = src().dimensions;
+  const unsegmentedSource =
+    dims.province.length <= 1 && dims.grade.length <= 1 && dims.subject.length <= 1;
 
   const ctor = campaignCTOR(campaign);
   const impact = campaignImpact(campaign, metric, ids, localWin);
@@ -102,7 +107,8 @@ function Detail({ campaign }: { campaign: PublicCampaign }) {
   const verdict = sustainedVerdict(prog);
   const interp = campaignInterpretation(campaign, ids, localWin);
 
-  const metricByLabel = new Map(IMPACT_METRICS.map((m) => [METRIC_LABEL[m], m]));
+  const available = impactMetrics();
+  const metricByLabel = new Map(available.map((m) => [METRIC_LABEL[m], m]));
 
   return (
     <div className="flex flex-col gap-6">
@@ -170,7 +176,7 @@ function Detail({ campaign }: { campaign: PublicCampaign }) {
             className="rounded px-2 py-1 text-sm"
             style={{ border: `1px solid ${T.border}`, background: T.surface, color: T.ink, minWidth: 220 }}
           >
-            {IMPACT_METRICS.map((m) => (
+            {available.map((m) => (
               <option key={m} value={METRIC_LABEL[m]}>
                 {METRIC_LABEL[m]}
               </option>
@@ -307,9 +313,11 @@ function Detail({ campaign }: { campaign: PublicCampaign }) {
                 No comparison group exists
               </div>
               <p className="mt-1 text-sm" style={{ color: T.soft, lineHeight: 1.6 }}>
-                This campaign targeted every teacher, so no comparison group exists. Measuring true
-                campaign effect requires reserving a randomised holdout before send — a change to
-                campaign operations, not analysis.
+                {unsegmentedSource
+                  ? "This data has no province, grade or subject breakdown, so the platform cannot be split into a targeted group and a rest. The campaign's own audience is recorded and will apply as soon as a segmented export exists."
+                  : "This campaign targeted every teacher, so no comparison group exists."}{" "}
+                Either way, measuring true campaign effect requires reserving a randomised holdout
+                before send — a change to campaign operations, not analysis.
               </p>
             </div>
           ) : (
