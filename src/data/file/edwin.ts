@@ -13,6 +13,7 @@
    warning and coverage decision stays in ./load.ts so that CSV and these two
    formats cannot drift apart in behaviour.
 =========================================================================== */
+import Papa from "papaparse";
 import type { Row } from "./load";
 import { parseMarkdownTables, tableWith, cleanNumeric } from "./markdown";
 import { readWorkbook, excelDate, type Sheet } from "./xlsx";
@@ -258,4 +259,120 @@ export async function campaignsFromWorkbook(buf: ArrayBuffer): Promise<CampaignP
     if (c.clicks === undefined) c.clicks = "0";
   }
   return { campaigns, skipped };
+}
+
+/* --- Campaigns: the same sheet saved as CSV --------------------------------
+   The cleaned export keeps the workbook's stacked layout but writes values as
+   they display — "5,133", "25.58%", "3/9/2026" — and in fixed columns under a
+   "Channel · Date Sent · Name · Target Audience · Metrics" header. Two things
+   make the workbook walker unsafe here, so this reads by column instead:
+
+   - A row can carry two label/value pairs ("Total Delivered 12,436" and, far
+     to the right, "Opt Out Rate 0.21%"). Taking only the last pair drops the
+     delivered count.
+   - A campaign's header row sometimes carries a board-level note in the
+     metric column ("RCSD | LR 43% ? 45%"), which must not be read as its
+     audience. The audience is the Target Audience column, nothing else. */
+
+/** "5,133" → "5133", "25.58%" → "0.2558", "100+" and text left alone. */
+function csvValue(v: string): string {
+  const s = v.trim();
+  const pct = /^(-?[\d,.]+)\s*%$/.exec(s);
+  if (pct) return String(Number(pct[1].replace(/,/g, "")) / 100);
+  if (/^-?[\d,]+(\.\d+)?$/.test(s)) return s.replace(/,/g, "");
+  return s;
+}
+
+/** "3/9/2026" (month/day/year, as the export writes it) → "2026-03-09". */
+function usDate(v: string): string | null {
+  const m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(v.trim());
+  if (!m) return null;
+  const [, mo, d, y] = m;
+  return `${y}-${mo.padStart(2, "0")}-${d.padStart(2, "0")}`;
+}
+
+export function campaignsFromStackedCsv(text: string): CampaignParse | null {
+  const grid = Papa.parse<string[]>(text, { skipEmptyLines: false }).data;
+  const hi = grid.findIndex((r) => r.some((c) => c.trim() === "Channel") && r.some((c) => c.trim() === "Date Sent"));
+  if (hi < 0) return null;
+  const head = grid[hi].map((c) => c.trim());
+  const col = {
+    channel: head.indexOf("Channel"),
+    date: head.indexOf("Date Sent"),
+    name: head.indexOf("Name"),
+    audience: head.indexOf("Target Audience"),
+    metrics: head.indexOf("Metrics"),
+  };
+  if (col.channel < 0 || col.date < 0 || col.name < 0 || col.metrics < 0) return null;
+
+  const campaigns: Row[] = [];
+  let cur: { row: Row; m: Record<string, string> } | null = null;
+  const finish = () => {
+    if (!cur) return;
+    const m = cur.m;
+    const pick = (...keys: string[]) => keys.map((k) => m[k]).find((v) => v !== undefined);
+    const delivered = pick("Total Delivered", "Delivered", "Sessions");
+    const opens = pick("Unique HTML Opens", "Total HTML Opens", "Notification Bell Opened");
+    const clicks = pick("Unique Clicks", "Total Clicks", "Notification Clickthrough");
+    if (isCount(delivered)) {
+      cur.row.sends = delivered;
+      cur.row.recipients = delivered;
+    }
+    // Same guard as the workbook: a rate where a count belongs is dropped,
+    // not printed as a measurement.
+    // This export reports *total* HTML opens, which count repeat opens and
+    // can legitimately exceed delivered (614 delivered, 616 opens). A whole
+    // number within a few times delivered is a count; beyond that it is not.
+    const openCeiling = cur.row.sends !== undefined ? String(Number(cur.row.sends) * 3) : undefined;
+    if (isCount(opens, openCeiling)) cur.row.opens = opens;
+    if (isCount(clicks, cur.row.sends)) cur.row.clicks = clicks;
+    if (cur.row.sends !== undefined) campaigns.push(cur.row);
+  };
+
+  for (const cells of grid.slice(hi + 1)) {
+    const channel = (cells[col.channel] ?? "").trim();
+    if (CHANNELS.has(channel)) {
+      finish();
+      const date = usDate(cells[col.date] ?? "");
+      const name = (cells[col.name] ?? "").trim();
+      if (date && name) {
+        const t = targetsFromName(name);
+        cur = {
+          row: {
+            campaign_id: slug(name) + "-" + date,
+            name,
+            type: channel,
+            channel,
+            launch_date: date,
+            audience: (col.audience >= 0 ? (cells[col.audience] ?? "").trim() : "") || "Teachers",
+            objective_metric: "wau",
+            target_province: t.province ?? "",
+            target_grade: t.grade ?? "",
+            target_subject: "",
+          },
+          m: {},
+        };
+      } else cur = null;
+    }
+    if (!cur) continue;
+    // Every label/value pair from the metrics column rightward.
+    for (let j = col.metrics; j < cells.length - 1; j++) {
+      const label = (cells[j] ?? "").trim();
+      const value = (cells[j + 1] ?? "").trim();
+      if (!/[A-Za-z]/.test(label) || !value) continue;
+      // First occurrence wins, matching the order the sheet is read in.
+      if (cur.m[label] === undefined) cur.m[label] = csvValue(value);
+      j++;
+    }
+  }
+  finish();
+
+  const seen = new Map<string, number>();
+  for (const c of campaigns) {
+    const n = (seen.get(c.campaign_id) ?? 0) + 1;
+    seen.set(c.campaign_id, n);
+    if (n > 1) c.campaign_id += `-${n}`;
+    if (c.clicks === undefined) c.clicks = "0";
+  }
+  return { campaigns, skipped: [] };
 }

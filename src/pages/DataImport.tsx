@@ -30,7 +30,7 @@ import { DAILY_FACTS, CAMPAIGNS_TABLE, CAMPAIGN_REACH, RELEASES_TABLE } from "..
 import { saveImport } from "../data/file/persist";
 import { publishLive } from "../data/live";
 import { fmtShort } from "../lib/dates";
-import { usageFromMarkdown, campaignsFromWorkbook } from "../data/file/edwin";
+import { usageFromMarkdown, campaignsFromWorkbook, campaignsFromStackedCsv } from "../data/file/edwin";
 import { int } from "../analytics/format";
 import { Collapsible } from "../components/Collapsible";
 import { ManualEditor } from "../components/ManualEditor";
@@ -335,7 +335,19 @@ function EdwinImport({
         );
         return;
       }
-      const parsedCamp = book ? await campaignsFromWorkbook(await book.arrayBuffer()) : null;
+      // The workbook as .xlsx, or the same sheet saved as CSV.
+      const isCsv = !!book && /.csv$/i.test(book.name);
+      const parsedCamp = !book
+        ? null
+        : isCsv
+        ? campaignsFromStackedCsv(await book.text())
+        : await campaignsFromWorkbook(await book.arrayBuffer());
+      if (book && isCsv && !parsedCamp) {
+        setError(
+          "No campaign header found in that CSV. It needs a row with Channel, Date Sent, Name and Metrics columns, as the Marketing Communications Metrics sheet has."
+        );
+        return;
+      }
 
       const input: InputFiles = {
         dailyFacts: parsedUsage ? "edwin" : undefined,
@@ -360,7 +372,7 @@ function EdwinImport({
     <div>
       <p className="text-xs" style={{ color: T.soft, lineHeight: 1.6 }}>
         Takes the two files as they are: the weekly usage rollup as a markdown table, and the
-        Pardot / YesWare / in-app workbook as .xlsx.
+        Pardot / YesWare / in-app workbook as .xlsx or saved as .csv.
       </p>
 
       <div className="mt-4 flex flex-col gap-3">
@@ -374,8 +386,8 @@ function EdwinImport({
           },
           {
             label: "Campaign workbook",
-            hint: "Marketing Communications Metrics — Pardot, YesWare and in-app notification sheets",
-            accept: ".xlsx",
+            hint: "Marketing Communications Metrics — the .xlsx workbook, or the sheet saved as .csv",
+            accept: ".xlsx,.csv",
             file: book,
             set: setBook,
           },
