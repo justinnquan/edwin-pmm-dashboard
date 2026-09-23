@@ -33,7 +33,7 @@ const cells = s.cells;
 /* --- daily_facts.csv ------------------------------------------------------- */
 const factHeader =
   "date,province,grade,subject,provisioned,daily_active,wau,resource_opens," +
-  "classes_created,assignments_created,aha_users,retention_w4";
+  "classes_created,assignments_created,aha_users,new_logins,retention_w4";
 
 const lines: string[] = [factHeader];
 // Walk back far enough to include the prior year the baseline needs.
@@ -60,6 +60,7 @@ while (d <= s.asOf) {
           Math.round(r.classesCreated),
           Math.round(r.assignmentsCreated),
           Math.round(r.ahaUsers),
+          Math.round(r.newLogins),
           r.retentionW4.toFixed(3),
         ].join(",")
       );
@@ -160,10 +161,15 @@ const sum = (rows: typeof a, m: keyof (typeof a)[0]) =>
 
 let worst = 0;
 const checks: [string, number, number][] = [];
-for (const m of ["wau", "resourceOpens", "assignmentsCreated", "dailyActive"] as const) {
+for (const m of ["wau", "resourceOpens", "assignmentsCreated", "dailyActive", "newLogins"] as const) {
   const x = sum(a, m);
   const y = sum(b, m);
-  const drift = x ? Math.abs(y - x) / x : 0;
+  // New logins run to a handful per segment on a quiet day, so rounding each
+  // of the cells to an integer can move the total by up to half a unit per
+  // cell — several percent of a small number. Only drift beyond that bound
+  // says anything about the contract.
+  const rounding = m === "newLogins" ? ids.length * 0.5 : 0;
+  const drift = x ? Math.max(0, Math.abs(y - x) - rounding) / x : 0;
   worst = Math.max(worst, drift);
   checks.push([m, x, y]);
 }

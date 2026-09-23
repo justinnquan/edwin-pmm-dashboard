@@ -14,7 +14,8 @@ import { src } from "../data/source";
 import { addDays, daysBetween, fromIso } from "../lib/dates";
 import { MIN_N, MATERIALITY, CONFIDENCE_Z, METRIC_LABEL } from "./constants";
 import { windowMean, adjustedSE } from "./kpis";
-import { campaignImpact, campaignsInWindow, reachedIn } from "./attribution";
+import { evalDate } from "./period";
+import { campaignImpact, campaignsBetween, reachedIn } from "./attribution";
 import { pct } from "./format";
 
 /* --- Channel metrics ------------------------------------------------------- */
@@ -94,7 +95,7 @@ export function segmentComparison(
 
   // No exposure data is not zero reach: it fails the gate and says so.
   const n = reachedIn([campaign.id], sendIds) ?? 0;
-  const restSeats = src().seatsOn(src().asOf, restIds) ?? 0;
+  const restSeats = src().seatsOn(evalDate(), restIds) ?? 0;
   if (n < MIN_N || restSeats < MIN_N) return { state: "insufficient-n", n };
 
   const send = groupAdjusted(metric, sendIds, launch, windowDays);
@@ -199,11 +200,11 @@ export interface ChannelRoll {
   assoc: number | null; // exposure-weighted adjusted change of the objective metric
 }
 
-/** Roll-up over campaigns launched within `rangeDays`, consistent with the
-    global date filter (it previously summed lifetime sends regardless of range). */
-export function channelRollup(ids: number[], windowDays: number, rangeDays: number): ChannelRoll[] {
+/** Roll-up over campaigns launched within the selected dates, consistent with
+    the global date filter (it once summed lifetime sends regardless of range). */
+export function channelRollup(ids: number[], windowDays: number, from: string, to: string): ChannelRoll[] {
   const map = new Map<string, PublicCampaign[]>();
-  for (const c of campaignsInWindow(rangeDays)) {
+  for (const c of campaignsBetween(from, to)) {
     const list = map.get(c.channel);
     if (list) list.push(c);
     else map.set(c.channel, [c]);

@@ -8,6 +8,7 @@ import type { Cell } from "../data/schema";
 import { src } from "../data/source";
 import { MIN_N } from "./constants";
 import { windowMean, seatWeightedRate, seatsIfStock } from "./kpis";
+import { evalDate } from "./period";
 import { campaignsInWindow, campaignImpact } from "./attribution";
 import { MONTHLY_TARGET } from "./adoption";
 
@@ -43,19 +44,19 @@ export interface SegmentRow {
 }
 
 function rowFor(ids: number[], key: string, windowDays: number): SegmentRow {
-  const seats = seatsIfStock(src().asOf, ids) ?? 0;
+  const seats = seatsIfStock(evalDate(), ids) ?? 0;
   if (!ids.length || seats < MIN_N) {
     return { key, seats, gated: true, wau: null, activeRate: null, adoptionRate: null, retention: null, assoc: null, assocReason: null };
   }
-  const wau = windowMean("wau", ids, src().asOf, 7);
+  const wau = windowMean("wau", ids, evalDate(), 7);
   const activeRate = wau != null && seats > 0 ? wau / seats : null;
   // Absent metrics read as 0, and a 0 renders as a confident "0.0%" rather
   // than a dash. Check the source carries them before dividing.
   const cov = src().coverage;
-  const ahaNow = cov.metrics.ahaUsers ? windowMean("ahaUsers", ids, src().asOf, 7) : null;
+  const ahaNow = cov.metrics.ahaUsers ? windowMean("ahaUsers", ids, evalDate(), 7) : null;
   const adoptionRate = ahaNow != null && wau ? ahaNow / wau : null;
   const retention = cov.metrics.retentionW4
-    ? seatWeightedRate("retentionW4", ids, src().asOf, 7)
+    ? seatWeightedRate("retentionW4", ids, evalDate(), 7)
     : null;
 
   let wsum = 0;
@@ -107,9 +108,9 @@ export function opportunityRanking(baseIds: number[]): Opportunity[] {
         (c) => baseSet.has(c.id) && c.province === p && c.grade === g
       ).map((c) => c.id);
       if (!ids.length) continue;
-      const seats = seatsIfStock(src().asOf, ids) ?? 0;
+      const seats = seatsIfStock(evalDate(), ids) ?? 0;
       if (seats < MIN_N) continue;
-      const wau = windowMean("wau", ids, src().asOf, 7);
+      const wau = windowMean("wau", ids, evalDate(), 7);
       if (wau == null || seats <= 0) continue;
       const activeRate = wau / seats;
       const gap = MONTHLY_TARGET - activeRate;

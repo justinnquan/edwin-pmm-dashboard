@@ -90,14 +90,15 @@ Everything on the dashboard. Thirteen or more months of it makes the seasonal ba
 | `classes_created` | Integer | No | Half of the adoption 'aha'. |
 | `assignments_created` | Integer | No | The other half of the adoption 'aha'. |
 | `aha_users` | Integer | No | Distinct teachers who created a class OR an assignment. Not derivable by adding the two columns above — the same teacher may do both. |
-| `cumulative_logins` | Integer | No | Running total of distinct teachers who have ever logged in. Charted as an adoption curve; deliberately never used as a denominator, because a figure that never sheds anyone makes every rate built on it fall regardless of behaviour. |
+| `cumulative_logins` | Integer | No | Running total of distinct teachers who have ever logged in. Never used as a denominator, because a figure that never sheds anyone makes every rate built on it fall regardless of behaviour. When new_logins is absent it is differenced into new logins per week. |
+| `new_logins` | Integer | No | Distinct teachers logging in for the first time in a rolling 7 days — the line that shows spikes after a send. Derived from cumulative_logins when that is supplied instead. |
 | `retention_w4` | Decimal 0–1 | No | A rate between 0 and 1, not a count. Share of a start cohort still active four weeks later. |
 
 Example row:
 
 ```csv
-date,province,grade,subject,provisioned,daily_active,wau,resource_opens,classes_created,assignments_created,aha_users,cumulative_logins,retention_w4
-2025-09-02,ON,Primary (1–3),Mathematics,2145,912,1404,3388,18,310,486,,0.51
+date,province,grade,subject,provisioned,daily_active,wau,resource_opens,classes_created,assignments_created,aha_users,cumulative_logins,new_logins,retention_w4
+2025-09-02,ON,Primary (1–3),Mathematics,2145,912,1404,3388,18,310,486,,42,0.51
 ```
 
 ### `campaigns.csv`

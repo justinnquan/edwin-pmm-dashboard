@@ -84,8 +84,12 @@ export function seriesFor(
   for (let d = new Date(from); d <= to; d = addDays(d, 1)) {
     const k = iso(d);
     const v = sumOn(k, metric, ids);
-    if (v == null) continue;
-    out.push({ date: k, value: v, baseline: baselineOn(metric, ids, d) });
+    const baseline = baselineOn(metric, ids, d);
+    // A day with no actual still carries last year's value, so a school year
+    // that has not been published yet can show the dotted line on its own.
+    // A day with neither is dropped, exactly as before.
+    if (v == null && baseline == null) continue;
+    out.push({ date: k, value: v, baseline });
   }
   return out;
 }

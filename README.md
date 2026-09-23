@@ -5,7 +5,7 @@ lifecycle marketing activity (Pardot emails, in-app notifications, release notes
 behaviour inside Edwin on one timeline, to answer: *are our campaigns moving teachers from
 awareness to activation to engagement to adoption to retention, and where should we act next?*
 
-**Live:** https://edwin-pmm-dashboard.vercel.app · **Version:** 0.2.0 (shown bottom-left of the app)
+**Live:** https://edwin-pmm-dashboard.vercel.app · **Version:** 0.3.0 (shown bottom-left of the app)
 
 ## Status
 
@@ -17,8 +17,10 @@ bottom of the left rail:
 | **Sample** | Seeded synthetic data. Illustrative only — must not be quoted as Edwin performance. It exercises every view, including the ones real data cannot fill yet. |
 | **Live** | The real 25/26 Edwin exports, and nothing else: the weekly usage rollup (48 weeks, Aug 2025 → Jun 2026) and the Pardot / YesWare / in-app campaign workbook (67 campaigns, Sept 2025 → Mar 2026). Password protected. |
 
-On Live, the weekly-active trend, all 67 campaigns with their real channel metrics, campaign
-drill-downs, the timeline and the calendar all work. Three things do not, and the dashboard says so
+On Live, the weekly-active trend, **new logged-in teachers per week** (differenced from the
+cumulative login count), all 67 campaigns with their real channel metrics, campaign drill-downs, the
+timeline and the calendar all work. The **2026/27** school year shows "No 26/27 data yet" with 25/26
+as a dotted line until 26/27 usage is published. Three things do not, and the dashboard says so
 in place rather than showing a zero:
 
 - **No seasonal adjustment.** One school year means no prior year to compare against (336 days of
@@ -64,25 +66,43 @@ function with Vercel Blob for Live data
 
 Until this is done, Live reports that it is not configured.
 
+## School years, dates and the dotted line
+
+- **School year** (2025/26 · 2026/27, plus 2024/25 on Sample) scopes every page. A school year runs
+  Aug 1 → Jun 30. It defaults to the current school year and is remembered per browser.
+- **Dates** opens a calendar with presets — Last 30 days, Last 90 days, Whole school year — or a
+  custom start and end day. Only days the dashboard can show are selectable: nothing before the data
+  starts, after a past year's last published day, or after today.
+- **Compare before/after** (1 week · 2 weeks · 30 days) is how many days either side of each send
+  are compared.
+- **The dotted line** on every trend is the same week last school year (364 days back, ±3-day
+  smoothed). It is drawn on its own when this year has no data yet, so last year's shape is visible
+  ahead of time. Where no prior year exists (2025/26 on Live) there is no dotted line.
+- KPIs report as of the last day of the selected dates. Campaign tables, the calendar and timeline
+  markers list only campaigns sent in those dates.
+- Every date carries its year ("Sep 10, 2025"; chart axes "Sep 10 '25").
+
 ## Reviewer walkthrough
 
 Open the [live dashboard](https://edwin-pmm-dashboard.vercel.app). It lands on the **Executive
 Overview**. Three controls shape everything: **Sample / Live** (bottom-left), the **Leadership /
 Product Marketing** toggle (top right — Leadership is the 30-second read; Product Marketing unlocks
-the operating detail), and the **global filter bar** (date range, attribution window, and province /
-grade / subject where the source has them). The **Methodology** button in the strip explains how
+the operating detail), and the **global filter bar** (school year, dates, compare before/after, and
+province / grade / subject where the source has them). The **Methodology** button in the strip explains how
 every figure is gated, and the strip itself states what the active source can and cannot support.
 
 Start on **Sample** to see the full method, then switch to **Live** to see what real data supports.
 
 1. **Executive Overview** (`/`). North-star *Active teacher rate* plus WAU, Adoption, Retention and a
    caveated *Campaign-associated* card, each with an ⓘ giving its definition, calculation and
-   limitation. The **Marketing impact** chart shows actual (solid), the prior-year seasonal baseline
-   (dashed) and the gap between them. Click a ▲ campaign marker to drill in.
+   limitation. The **Marketing impact** chart shows the metric (solid), the same week last school year
+   (dotted) and the gap between them, plus **new logged-in teachers** on the right-hand axis so
+   spikes after a send are visible. Click a ▲ campaign marker to drill in.
 2. **Marketing Performance** (`/marketing`, PMM view). Sortable campaign table with durability
    verdicts — **sustained, faded, spike or insufficient**, each decided on the week's own uncertainty
    band — and a channel roll-up.
-3. **Campaign Impact** (`/campaign/:id`). Before vs. after with uncertainty (7/14/30-day window),
+3. **Campaign Impact** (`/campaign/:id`). Before vs. after with uncertainty (1 week / 2 weeks / 30 days) and a chart of
+   the same window against last school year,
    **targeted segment vs. rest of platform** (explicitly *not* a control), week-over-week cohort
    progression, and one gated interpretation sentence. Compare a broad campaign with a narrow one to
    see the minimum-sample gate and the "needs a randomised holdout" state.

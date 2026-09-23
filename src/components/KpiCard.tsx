@@ -1,6 +1,8 @@
 /* ===========================================================================
    /components — KPI CARD
    SIGNATURE: raw movement and the seasonally-adjusted movement, always paired.
+   With `empty`, the period has no actuals yet (a school year not published):
+   the card says so plainly and shows the same week last year for reference.
 =========================================================================== */
 import type { ReactNode } from "react";
 import { T, num } from "../theme/tokens";
@@ -18,6 +20,7 @@ export function KpiCard({
   caveat,
   primary,
   info,
+  empty,
 }: {
   label: string;
   value: string;
@@ -28,6 +31,7 @@ export function KpiCard({
   caveat?: boolean;
   primary?: boolean;
   info?: KpiInfo;
+  empty?: { title: string; lastYear?: string | null };
 }) {
   const tone = adjusted == null ? T.muted : adjusted >= 0 ? T.good : T.warn;
   return (
@@ -43,6 +47,11 @@ export function KpiCard({
           </div>
           {caveat && <Chip tone="warn">Association</Chip>}
         </div>
+        {empty ? (
+          <div className="mt-3 text-base font-extrabold" style={{ color: T.soft, lineHeight: 1.3 }}>
+            {empty.title}
+          </div>
+        ) : (
         <div className="mt-3 flex items-baseline gap-1">
           <span
             style={{
@@ -61,10 +70,16 @@ export function KpiCard({
             </span>
           )}
         </div>
+        )}
       </div>
 
       <div className="mt-4">
-        {raw != null && (
+        {empty && (
+          <div className="text-xs" style={{ ...num, color: T.muted }}>
+            Same week last year: <b style={{ color: T.soft }}>{empty.lastYear ?? "—"}</b>
+          </div>
+        )}
+        {!empty && raw != null && (
           <div className="flex items-center gap-3 text-xs" style={num}>
             <span style={{ color: T.muted }}>
               Raw <b style={{ color: T.soft }}>{raw}</b>
@@ -75,7 +90,7 @@ export function KpiCard({
             </span>
           </div>
         )}
-        {note && (
+        {!empty && note && (
           <div className="mt-2 text-xs" style={{ color: T.muted, lineHeight: 1.5 }}>
             {note}
           </div>

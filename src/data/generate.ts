@@ -9,7 +9,7 @@ import { CELLS } from "./segments";
 import { CAMPAIGNS, campaignMultiplier } from "./campaigns";
 import { compileTarget } from "./target";
 import { START, TODAY, mulberry32, seasonalRate, provisioned, DOW } from "./calendar";
-import { addDays, daysBetween, iso } from "../lib/dates";
+import { addDays, daysBetween, fromIso, iso } from "../lib/dates";
 
 export interface GeneratedData {
   rows: DailyRow[];
@@ -65,13 +65,60 @@ export function generate(): GeneratedData {
         assignmentsCreated,
         ahaUsers: Math.min(ahaUsers, wau * 0.92),
         retentionW4: Math.max(0.18, Math.min(0.74, 0.3 + season * 1.15)),
+        newLogins: 0, // filled by addNewLogins() below, which draws no random numbers
       };
       rows.push(row);
       list.push(row);
     }
     byDate.set(key, list);
   }
+  addNewLogins(byDate, total);
   return { rows, byDate };
+}
+
+/* --- First-time logins ------------------------------------------------------
+   A deterministic series: it calls no RNG, so every random draw above — and
+   therefore the null test — is unchanged by its existence.
+
+   Teachers log in for the first time at a rate that follows the season (heavy
+   in September, near nothing in July), with a short, sharp bump after each
+   email send to the cells it targeted. The bump lives only in this metric,
+   which no campaign declares as its objective, so it cannot leak into the
+   attribution ground truth. Stored as a trailing 7-day sum so it has the same
+   rolling-week shape as wau. */
+const EMAIL_BUMP = 0.004; // share of a cell's seats logging in on the day of a send
+const EMAIL_HALF_LIFE = 1.5; // days
+const BASE_RATE = 0.0011; // daily first-time share at peak season
+
+function addNewLogins(byDate: Map<string, DailyRow[]>, total: number): void {
+  const emails = CAMPAIGNS.filter((c) => /email/i.test(c.channel)).map((c) => ({
+    launch: fromIso(c.launch),
+    target: compileTarget(c.targetSpec),
+  }));
+  const daily: number[][] = CELLS.map(() => []);
+  for (let i = 0; i <= total; i++) {
+    const date = addDays(START, i);
+    const season = seasonalRate(date);
+    const dow = DOW[date.getUTCDay()];
+    const seatsAll = provisioned(date);
+    for (const cell of CELLS) {
+      let bump = 0;
+      for (const e of emails) {
+        const d = daysBetween(e.launch, date);
+        if (d < 0 || d > 14 || !e.target(cell)) continue;
+        bump += EMAIL_BUMP * Math.pow(0.5, d / EMAIL_HALF_LIFE);
+      }
+      daily[cell.id].push(seatsAll * cell.weight * (BASE_RATE * season + bump) * dow);
+    }
+  }
+  for (let i = 0; i <= total; i++) {
+    const list = byDate.get(iso(addDays(START, i)))!;
+    for (const cell of CELLS) {
+      let sum = 0;
+      for (let k = Math.max(0, i - 6); k <= i; k++) sum += daily[cell.id][k];
+      list[cell.id].newLogins = sum;
+    }
+  }
 }
 
 export interface Panel {

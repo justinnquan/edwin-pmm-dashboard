@@ -7,7 +7,7 @@
 import { useMemo } from "react";
 import type { Metric } from "../data/schema";
 import { src } from "../data/source";
-import { addDays } from "../lib/dates";
+import { fromIso } from "../lib/dates";
 import { METRIC_LABEL } from "../analytics/constants";
 import { cellFilter, seriesFor } from "../analytics/kpis";
 import { activationFunnel, activationGauges, featureAdoption, seatsOf } from "../analytics/adoption";
@@ -22,12 +22,11 @@ import { int } from "../analytics/format";
 const TREND_METRICS: Metric[] = ["resourceOpens", "classesCreated", "assignmentsCreated"];
 
 export default function AdoptionEngagement() {
-  const { province, grade, subject, range } = useFilters();
+  const { province, grade, subject, from, to } = useFilters();
   const ids = useMemo(() => cellFilter({ province, grade, subject }), [province, grade, subject]);
 
   const model = useMemo(() => {
     if (!ids.length) return null;
-    const from = addDays(src().asOf, -range);
     return {
       seats: seatsOf(ids),
       funnel: activationFunnel(ids),
@@ -37,10 +36,10 @@ export default function AdoptionEngagement() {
       // flat zero line indistinguishable from a real collapse.
       trends: TREND_METRICS.filter((m) => src().coverage.metrics[m]).map((m) => ({
         metric: m,
-        series: seriesFor(m, ids, from, src().asOf),
+        series: seriesFor(m, ids, fromIso(from), fromIso(to)),
       })),
     };
-  }, [ids, range]);
+  }, [ids, from, to]);
 
   if (!model) {
     return (

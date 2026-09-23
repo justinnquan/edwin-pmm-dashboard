@@ -13,7 +13,8 @@ import {
   CartesianGrid,
 } from "recharts";
 import { T, num } from "../theme/tokens";
-import { fmtShort } from "../lib/dates";
+import { fmtAxis, fmtShort } from "../lib/dates";
+import { LAST_YEAR_LABEL } from "../analytics/constants";
 import { pct, pctAbs, int } from "../analytics/format";
 import type { FunnelStage, Gauge as GaugeData, FeatureAdoption } from "../analytics/adoption";
 import type { SeriesPoint } from "../data/schema";
@@ -137,7 +138,7 @@ export function FeatureBars({ features }: { features: FeatureAdoption[] }) {
   );
 }
 
-/* --- Compact metric trend (value vs seasonal baseline) --------------------- */
+/* --- Compact metric trend (value vs the same week last school year) -------- */
 export function MiniTrend({ title, series }: { title: string; series: SeriesPoint[] }) {
   return (
     <div>
@@ -150,7 +151,7 @@ export function MiniTrend({ title, series }: { title: string; series: SeriesPoin
             <CartesianGrid stroke={T.border} vertical={false} />
             <XAxis
               dataKey="date"
-              tickFormatter={fmtShort}
+              tickFormatter={fmtAxis}
               tick={{ fontSize: 10, fill: T.muted }}
               axisLine={{ stroke: T.border }}
               tickLine={false}
@@ -176,7 +177,7 @@ export function MiniTrend({ title, series }: { title: string; series: SeriesPoin
               strokeDasharray="5 4"
               dot={false}
               isAnimationActive={false}
-              name="Seasonal baseline"
+              name={LAST_YEAR_LABEL}
             />
             <Line
               type="monotone"
@@ -185,6 +186,7 @@ export function MiniTrend({ title, series }: { title: string; series: SeriesPoin
               strokeWidth={2}
               dot={false}
               isAnimationActive={false}
+              connectNulls={false}
               name={title}
             />
           </LineChart>

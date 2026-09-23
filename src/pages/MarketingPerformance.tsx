@@ -6,10 +6,11 @@ import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import type { PublicCampaign, CampaignImpact, Metric } from "../data/schema";
 import { src } from "../data/source";
-import { fmtShort } from "../lib/dates";
+import { fmtRange, fmtShort } from "../lib/dates";
+import { windowLabel } from "../components/WindowToggle";
 import { pct, int } from "../analytics/format";
 import { cellFilter } from "../analytics/kpis";
-import { campaignImpact } from "../analytics/attribution";
+import { campaignImpact, campaignsBetween } from "../analytics/attribution";
 import {
   campaignOpens,
   campaignClicks,
@@ -76,12 +77,12 @@ function Th({
 
 export default function MarketingPerformance() {
   const navigate = useNavigate();
-  const { province, grade, subject, win, range } = useFilters();
+  const { province, grade, subject, win, from, to } = useFilters();
   const ids = useMemo(() => cellFilter({ province, grade, subject }), [province, grade, subject]);
   const [sort, setSort] = useState<{ key: SortKey; dir: 1 | -1 }>({ key: "assoc", dir: -1 });
 
   const rows = useMemo<Row[]>(() => {
-    return src().campaigns.map((c) => {
+    return campaignsBetween(from, to).map((c) => {
       const metric = primaryMetric(c);
       const r = campaignImpact(c, metric, ids, win);
       const sustained = sustainedVerdict(cohortProgression(c, metric, ids));
@@ -98,7 +99,7 @@ export default function MarketingPerformance() {
         assocSort,
       };
     });
-  }, [ids, win]);
+  }, [ids, win, from, to]);
 
   const sorted = useMemo(() => {
     const val = (row: Row): number | string => {
@@ -127,7 +128,7 @@ export default function MarketingPerformance() {
     });
   }, [rows, sort]);
 
-  const channels = useMemo(() => channelRollup(ids, win, range), [ids, win, range]);
+  const channels = useMemo(() => channelRollup(ids, win, from, to), [ids, win, from, to]);
 
   // Comparison state
   const all = src().campaigns;
@@ -144,11 +145,11 @@ export default function MarketingPerformance() {
           className="text-sm font-extrabold uppercase"
           style={{ color: T.navy, letterSpacing: "0.07em" }}
         >
-          Campaigns
+          Campaigns · {fmtRange(from, to)}
         </h2>
         <p className="mt-1 mb-3 text-xs" style={{ color: T.muted }}>
-          Channel engagement beside the seasonally-adjusted product change that followed, gated at{" "}
-          {win}-day windows. Click a header to sort, a row to open the campaign.
+          Channel engagement beside the seasonally-adjusted product change that followed, comparing{" "}
+          {windowLabel(win)} before vs. after each send. Click a header to sort, a row to open the campaign.
         </p>
         <div style={{ overflowX: "auto" }}>
           <table className="w-full" style={{ minWidth: 900 }}>
@@ -173,6 +174,13 @@ export default function MarketingPerformance() {
               </tr>
             </thead>
             <tbody>
+              {sorted.length === 0 && (
+                <tr>
+                  <td colSpan={10} className="py-6 text-sm" style={{ color: T.muted }}>
+                    No campaigns sent in these dates.
+                  </td>
+                </tr>
+              )}
               {sorted.map((row) => {
                 const sc = sustainChip[row.sustained];
                 return (
@@ -301,7 +309,7 @@ export default function MarketingPerformance() {
         </h2>
         <p className="mb-3 text-xs" style={{ color: T.muted }}>
           Downstream product change side by side, to learn which activity type moves behaviour. All
-          figures are {win}-day, seasonally adjusted, and N-gated.
+          figures compare {windowLabel(win)} before vs. after, seasonally adjusted and N-gated.
         </p>
         <div className="grid gap-4" style={{ gridTemplateColumns: "repeat(auto-fit,minmax(320px,1fr))" }}>
           {[

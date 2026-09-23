@@ -18,10 +18,11 @@ import {
 } from "recharts";
 import type { PublicCampaign, Metric } from "../data/schema";
 import { src } from "../data/source";
-import { fmtShort } from "../lib/dates";
-import { MIN_N, MATERIALITY, METRIC_LABEL } from "../analytics/constants";
+import { addDays, fmtAxis, fmtShort, fromIso, schoolYearOf, priorSchoolYear } from "../lib/dates";
+import { MIN_N, MATERIALITY, METRIC_LABEL, LAST_YEAR_LABEL } from "../analytics/constants";
 import { pct, pctAbs, int } from "../analytics/format";
-import { cellFilter } from "../analytics/kpis";
+import { cellFilter, seriesFor } from "../analytics/kpis";
+import { WindowToggle, windowLabel } from "../components/WindowToggle";
 import { campaignImpact } from "../analytics/attribution";
 import {
   campaignOpens,
@@ -159,7 +160,7 @@ function Detail({ campaign }: { campaign: PublicCampaign }) {
       {/* Product impact */}
       <section>
         <h2 className="mb-3 text-sm font-extrabold uppercase" style={{ color: T.navy, letterSpacing: "0.07em" }}>
-          Product impact · {localWin}-day window
+          Product impact · {windowLabel(localWin)} before vs. after
         </h2>
         <ProductImpactGrid campaign={campaign} ids={ids} windowDays={localWin} />
       </section>
@@ -184,27 +185,7 @@ function Detail({ campaign }: { campaign: PublicCampaign }) {
           </select>
         </label>
 
-        <div className="flex flex-col gap-1">
-          <span className="text-xs font-bold uppercase" style={{ color: T.muted, letterSpacing: "0.05em" }}>
-            Window
-          </span>
-          <div className="flex rounded p-1" style={{ background: T.bg, border: `1px solid ${T.border}` }}>
-            {[7, 14, 30].map((w) => (
-              <button
-                key={w}
-                onClick={() => setLocalWin(w)}
-                className="rounded px-3 py-1 text-sm font-semibold"
-                style={{
-                  background: localWin === w ? T.surface : "transparent",
-                  color: localWin === w ? T.blue : T.muted,
-                  border: localWin === w ? `1px solid ${T.border}` : "1px solid transparent",
-                }}
-              >
-                {w}d
-              </button>
-            ))}
-          </div>
-        </div>
+        <WindowToggle value={localWin} onChange={setLocalWin} />
 
         <label className="flex items-center gap-2 mt-4 cursor-pointer">
           <input type="checkbox" checked={adjust} onChange={(e) => setAdjust(e.target.checked)} />
@@ -226,11 +207,11 @@ function Detail({ campaign }: { campaign: PublicCampaign }) {
           {impact.state === "ok" ? (
             <>
               <div className="mt-4 flex items-center justify-between gap-3">
-                <BeforeAfterCol label={`Before · ${localWin}d`} value={int(impact.pre)} />
+                <BeforeAfterCol label={`Before · ${windowLabel(localWin)}`} value={int(impact.pre)} />
                 <div className="text-2xl" style={{ color: T.muted }}>
                   →
                 </div>
-                <BeforeAfterCol label={`After · ${localWin}d`} value={int(impact.post)} />
+                <BeforeAfterCol label={`After · ${windowLabel(localWin)}`} value={int(impact.post)} />
               </div>
               <div className="mt-4 pt-4 flex items-baseline justify-between" style={{ borderTop: `1px solid ${T.border}` }}>
                 <span className="text-sm" style={{ color: T.soft }}>
@@ -266,6 +247,7 @@ function Detail({ campaign }: { campaign: PublicCampaign }) {
           ) : (
             <GateNote state={impact} windowDays={localWin} />
           )}
+          <BeforeAfterChart campaign={campaign} metric={metric} ids={ids} windowDays={localWin} />
         </Card>
 
         {/* Targeted segment vs. rest of platform */}
@@ -481,6 +463,102 @@ function SegmentGate({
         `Insufficient data — the targeted segment or the rest of the platform is below the ${MIN_N}-teacher minimum.`}
       {state.state === "out-of-segment" && "No exposed teachers in the current segment."}
       {state.state === "no-baseline" && "No prior-year baseline available for this window."}
+    </div>
+  );
+}
+
+/* The same window, drawn: the analysed metric from `window` days before the
+   send to `window` days after it (solid), against the same days last school
+   year (dotted). Shown whatever the numeric gates decided, because the shape
+   is informative even where a figure cannot be claimed. */
+function BeforeAfterChart({
+  campaign,
+  metric,
+  ids,
+  windowDays,
+}: {
+  campaign: PublicCampaign;
+  metric: Metric;
+  ids: number[];
+  windowDays: number;
+}) {
+  const launch = fromIso(campaign.launch);
+  const series = useMemo(
+    () => seriesFor(metric, ids, addDays(launch, -windowDays), addDays(launch, windowDays)),
+    [metric, ids, windowDays, campaign.launch]
+  );
+  const hasPrior = series.some((p) => p.baseline != null);
+  const prior = priorSchoolYear(schoolYearOf(launch));
+  return (
+    <div className="mt-4 pt-4" style={{ borderTop: `1px solid ${T.border}` }}>
+      <div className="flex flex-wrap items-center gap-4 text-xs" style={{ color: T.muted }}>
+        <span className="flex items-center gap-2">
+          <span style={{ width: 18, height: 3, background: T.blue, display: "inline-block" }} />
+          {METRIC_LABEL[metric]}
+        </span>
+        <span className="flex items-center gap-2">
+          <span style={{ width: 18, height: 0, borderTop: `2px dashed ${T.baseline}`, display: "inline-block" }} />
+          {LAST_YEAR_LABEL}
+        </span>
+      </div>
+      <div style={{ width: "100%", height: 170 }} className="mt-2">
+        <ResponsiveContainer>
+          <LineChart data={series} margin={{ top: 6, right: 8, bottom: 0, left: 0 }}>
+            <CartesianGrid stroke={T.border} vertical={false} />
+            <XAxis
+              dataKey="date"
+              tickFormatter={fmtAxis}
+              tick={{ fontSize: 10, fill: T.muted }}
+              axisLine={{ stroke: T.border }}
+              tickLine={false}
+              minTickGap={40}
+            />
+            <YAxis
+              tick={{ fontSize: 10, fill: T.muted }}
+              axisLine={false}
+              tickLine={false}
+              width={40}
+              tickFormatter={(v: number) => (v >= 1000 ? (v / 1000).toFixed(1) + "k" : String(Math.round(v)))}
+            />
+            <Tooltip
+              labelFormatter={(l: string) => fmtShort(l)}
+              formatter={(v: unknown) => (typeof v === "number" ? int(v) : "—")}
+              contentStyle={{ fontSize: 12, borderRadius: 6, border: `1px solid ${T.border}` }}
+            />
+            <ReferenceLine
+              x={campaign.launch}
+              stroke={T.warn}
+              strokeDasharray="3 3"
+              label={{ value: "Sent", position: "insideTopLeft", fontSize: 10, fill: T.warn }}
+            />
+            <Line
+              type="monotone"
+              dataKey="baseline"
+              stroke={T.baseline}
+              strokeWidth={1.5}
+              strokeDasharray="5 4"
+              dot={false}
+              isAnimationActive={false}
+              name={LAST_YEAR_LABEL}
+            />
+            <Line
+              type="monotone"
+              dataKey="value"
+              stroke={T.blue}
+              strokeWidth={2}
+              dot={false}
+              isAnimationActive={false}
+              connectNulls={false}
+              name={METRIC_LABEL[metric]}
+            />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+      {!hasPrior && (
+        <p className="mt-1 text-xs" style={{ color: T.muted }}>
+          No {prior} data for this window, so there is no dotted line to compare against.
+        </p>
+      )}
     </div>
   );
 }

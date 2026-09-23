@@ -23,13 +23,19 @@ import { NAV, navFor } from "./nav";
 import { MethodologyModal } from "./MethodologyModal";
 import { ErrorBoundary } from "./ErrorBoundary";
 import { PageLoading } from "./states";
+import { DateRangePicker } from "./DateRangePicker";
+import { WindowToggle } from "./WindowToggle";
+import { availableYears, yearWindow } from "../analytics/period";
 import { SourceToggle } from "./SourceToggle";
 import { LiveGate } from "./LiveGate";
 
 export function Layout() {
   const { pathname } = useLocation();
   const meta = navFor(pathname);
-  const { view, range, win, metric, province, grade, subject, update } = useFilters();
+  const { view, schoolYear, preset, from, to, win, metric, province, grade, subject, update, setYear, setDates } =
+    useFilters();
+  const years = availableYears();
+  const yw = yearWindow(schoolYear);
   const version = useDataSource((s) => s.version);
   const mode = useDataSource((s) => s.mode);
   const liveStatus = useDataSource((s) => s.live.status);
@@ -127,11 +133,20 @@ export function Layout() {
               style={{ background: T.surface, borderBottom: `1px solid ${T.border}` }}
             >
               <Select
-                label="Date range"
-                value={String(range)}
-                options={["30", "90", "180"]}
-                onChange={(v) => update({ range: Number(v) })}
+                label="School year"
+                value={schoolYear}
+                options={years}
+                onChange={setYear}
               />
+              <DateRangePicker
+                from={from}
+                to={to}
+                min={yw.min}
+                max={yw.max}
+                preset={preset}
+                onApply={setDates}
+              />
+              <WindowToggle value={win} onChange={(w) => update({ win: w })} />
               {/* A dimension with a single value offers no choice, and rendering it
                   anyway invites selecting an option that empties the dashboard with
                   no explanation. Hidden entirely when the source is unsegmented. */}
@@ -159,12 +174,6 @@ export function Layout() {
                   onChange={(v) => update({ subject: v })}
                 />
               )}
-              <Select
-                label="Attribution window"
-                value={String(win)}
-                options={["7", "14", "30"]}
-                onChange={(v) => update({ win: Number(v) })}
-              />
               {showTrendMetric && (
                 <Select
                   label="Trend metric"
@@ -185,7 +194,8 @@ export function Layout() {
                 {source.label}
               </span>
               <span>
-                <b style={{ color: T.navy }}>Baseline</b> prior year, ±{BASELINE_SMOOTH}-day smoothed, rescaled for seat growth
+                <b style={{ color: T.navy }}>Dotted line</b> same week last school year, ±{BASELINE_SMOOTH}-day smoothed
+                {source.coverage.seatsAreStock ? ", rescaled for seat growth" : ""}
               </span>
               <span>
                 <b style={{ color: T.navy }}>Minimum sample</b> {MIN_N} exposed teachers

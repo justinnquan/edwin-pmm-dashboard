@@ -126,6 +126,8 @@ const WEEKLY_EXPANSION: Record<string, "repeat" | "divide"> = {
   provisioned: "repeat",
   cumulative_logins: "repeat",
   wau: "repeat",
+  // Already a 7-day count (first-time logins that week), like wau.
+  new_logins: "repeat",
   aha_users: "repeat",
   retention_w4: "repeat",
   // Flows: a total accumulated over seven days.
@@ -133,6 +135,35 @@ const WEEKLY_EXPANSION: Record<string, "repeat" | "divide"> = {
   classes_created: "divide",
   assignments_created: "divide",
 };
+
+/** Adds a `new_logins` column differenced from `cumulative_logins`, per
+    segment and in date order. Weekly rows give a weekly difference directly;
+    daily rows are differenced and then summed over a trailing seven days, so
+    both grains carry the same rolling-week meaning. A value that goes
+    backwards (a correction in the source) counts as zero, never negative. */
+function withNewLogins(rows: Row[], weekly: boolean): Row[] {
+  const dateCol = weekly ? "week_starting" : "date";
+  const groups = new Map<string, Row[]>();
+  for (const r of rows) {
+    const k = `${r.province ?? ""}|${r.grade ?? ""}|${r.subject ?? ""}`;
+    let g = groups.get(k);
+    if (!g) groups.set(k, (g = []));
+    g.push(r);
+  }
+  const out = new Map<Row, Row>();
+  for (const g of groups.values()) {
+    const sorted = [...g].sort((a, b) => (a[dateCol] ?? "").localeCompare(b[dateCol] ?? ""));
+    const deltas = sorted.map((r, i) =>
+      Math.max(0, numOf(r.cumulative_logins) - (i ? numOf(sorted[i - 1].cumulative_logins) : 0))
+    );
+    sorted.forEach((r, i) => {
+      let v = deltas[i];
+      if (!weekly) for (let k = Math.max(0, i - 6); k < i; k++) v += deltas[k];
+      out.set(r, { ...r, new_logins: String(v) });
+    });
+  }
+  return rows.map((r) => out.get(r)!);
+}
 
 export function buildFileSource(files: InputFiles): ValidationReport {
   const findings: Finding[] = [];
@@ -214,8 +245,16 @@ export function buildFileSource(files: InputFiles): ValidationReport {
   // below decide what may be done with it.
   const seatsFromCumulative = !headers.includes("provisioned") && headers.includes("cumulative_logins");
 
+  // The same running total, differenced, is the figure Leadership actually
+  // watches: how many teachers logged in for the first time that week. Spikes
+  // after a send show in the difference and vanish into the slope of the
+  // total. The counter restarts with the school year, so its first row is
+  // itself a first-week count rather than an unknown.
+  const loginsDerived = !headers.includes("new_logins") && headers.includes("cumulative_logins");
+  const inputFacts = loginsDerived ? withNewLogins(rawFacts, weekly) : rawFacts;
+
   const factRows: Row[] = [];
-  for (const r of rawFacts) {
+  for (const r of inputFacts) {
     const base: Row = {
       ...r,
       province: r.province || "All",
@@ -249,7 +288,10 @@ export function buildFileSource(files: InputFiles): ValidationReport {
   const metricsMissing: SummableMetric[] = [];
   for (const c of DAILY_FACTS.columns) {
     if (!c.metric) continue;
-    const present = headers.includes(c.name) || (c.name === "provisioned" && seatsFromCumulative);
+    const present =
+      headers.includes(c.name) ||
+      (c.name === "provisioned" && seatsFromCumulative) ||
+      (c.name === "new_logins" && loginsDerived);
     if (present) metricsPresent.push(c.metric);
     else {
       metricsMissing.push(c.metric);
@@ -324,6 +366,7 @@ export function buildFileSource(files: InputFiles): ValidationReport {
     assignmentsCreated: 0,
     ahaUsers: 0,
     retentionW4: 0,
+    newLogins: 0,
   });
 
   let unknownCells = 0;
@@ -349,6 +392,7 @@ export function buildFileSource(files: InputFiles): ValidationReport {
       assignmentsCreated: numOf(r.assignments_created),
       ahaUsers: numOf(r.aha_users),
       retentionW4: numOf(r.retention_w4),
+      newLogins: numOf(r.new_logins),
     };
   }
   if (unknownCells) {
@@ -584,6 +628,7 @@ export function buildFileSource(files: InputFiles): ValidationReport {
       assignmentsCreated: metricsPresent.includes("assignmentsCreated"),
       ahaUsers: metricsPresent.includes("ahaUsers"),
       retentionW4: metricsPresent.includes("retentionW4"),
+      newLogins: metricsPresent.includes("newLogins"),
     },
     reach: hasReach,
     reachIsRecipients,

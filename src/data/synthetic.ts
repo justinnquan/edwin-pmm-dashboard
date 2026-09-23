@@ -25,6 +25,7 @@ const ALL_METRICS: SummableMetric[] = [
   "assignmentsCreated",
   "ahaUsers",
   "retentionW4",
+  "newLogins",
 ];
 
 export function createSyntheticSource(): DataSource {

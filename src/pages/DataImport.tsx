@@ -135,7 +135,7 @@ function Report({ report, raw }: { report: ValidationReport; raw: InputFiles | n
           >
             {[
               ["Rows", int(s.rows)],
-              ["Date range", s.dateFrom && s.dateTo ? `${s.dateFrom} → ${s.dateTo}` : "—"],
+              ["Date range", s.dateFrom && s.dateTo ? `${fmtShort(s.dateFrom)} → ${fmtShort(s.dateTo)}` : "—"],
               ["History", `${int(s.historyDays)} days`],
               ["Segments", int(s.cells)],
               ["Campaigns", int(s.campaigns)],

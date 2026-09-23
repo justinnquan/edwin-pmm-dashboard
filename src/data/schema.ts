@@ -21,7 +21,10 @@ export type SummableMetric =
   | "classesCreated"
   | "assignmentsCreated"
   | "ahaUsers"
-  | "retentionW4";
+  | "retentionW4"
+  /** Teachers logging in for the first time in the trailing 7 days — the
+      same rolling-week shape as wau, so the two chart on one timeline. */
+  | "newLogins";
 
 export interface Cell {
   id: number;
@@ -80,11 +83,14 @@ export interface DailyRow {
   assignmentsCreated: number;
   ahaUsers: number;
   retentionW4: number;
+  newLogins: number;
 }
 
 export interface SeriesPoint {
   date: string;
-  value: number;
+  /** Null on a day the source has no actual for — a school year not yet
+      published — while its prior-year baseline can still be drawn. */
+  value: number | null;
   baseline: number | null;
 }
 

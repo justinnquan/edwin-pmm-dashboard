@@ -22,3 +22,16 @@ export const METRIC_LABEL: Record<Metric, string> = {
   classesCreated: "Classes created",
   ahaUsers: "Adoption (class or assignment created)",
 };
+
+/** Labels for every metric a chart can draw, including ones no campaign can
+    declare as its objective. */
+export const SERIES_LABEL: Record<string, string> = {
+  ...METRIC_LABEL,
+  newLogins: "New logged-in teachers",
+  dailyActive: "Daily active teachers",
+  provisioned: "Provisioned seats",
+  retentionW4: "4-week retention",
+};
+
+/** The dotted line's name wherever it appears. */
+export const LAST_YEAR_LABEL = "Last school year (same week)";

@@ -31,7 +31,7 @@ const num2 = (v: number | null, kind: Kind): string =>
 
 /* A dash always carries its reason, so a suppressed cell never reads as a zero. */
 const ASSOC_REASON: Record<NonNullable<SegmentRow["assocReason"]>, string> = {
-  "no-campaigns": "No campaigns launched in the last 30 days for this segment.",
+  "no-campaigns": "No campaigns sent in the 30 days up to the end of the selected dates for this segment.",
   "none-cleared":
     "Campaigns ran, but none cleared their materiality, sample-size and activity-volume gates here.",
 };

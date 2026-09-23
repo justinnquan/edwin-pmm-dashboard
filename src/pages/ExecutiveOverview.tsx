@@ -7,11 +7,12 @@ import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { T, num } from "../theme/tokens";
 import { src } from "../data/source";
-import { addDays } from "../lib/dates";
-import { METRIC_LABEL } from "../analytics/constants";
+import { addDays, fmtRange, fromIso } from "../lib/dates";
+import { SERIES_LABEL, LAST_YEAR_LABEL, YOY_LAG } from "../analytics/constants";
 import { pct, int } from "../analytics/format";
 import { cellFilter, seriesFor, windowMean, adjustedChange, seatWeightedRate } from "../analytics/kpis";
-import { campaignsInWindow, reachedIn, campaignImpact } from "../analytics/attribution";
+import { campaignsBetween, reachedIn, campaignImpact } from "../analytics/attribution";
+import { evalDate, hasActualsIn, priorYearOf } from "../analytics/period";
 import { buildInsights } from "../analytics/insights";
 import { seatsOf } from "../analytics/adoption";
 import { useFilters } from "../state/filterStore";
@@ -26,7 +27,7 @@ import { ImpactRow } from "../components/DrillPanel";
 
 export default function ExecutiveOverview() {
   const navigate = useNavigate();
-  const { view, range, win, metric, province, grade, subject } = useFilters();
+  const { view, from, to, schoolYear, win, metric, province, grade, subject } = useFilters();
   const openCampaign = (id: string) => navigate(`/campaign/${id}`);
 
   const ids = useMemo(
@@ -36,29 +37,39 @@ export default function ExecutiveOverview() {
 
   const model = useMemo(() => {
     if (!ids.length) return null;
-    const from = addDays(src().asOf, -range);
-    const series = seriesFor(metric, ids, from, src().asOf);
+    const start = fromIso(from);
+    const end = fromIso(to);
+    const series = seriesFor(metric, ids, start, end);
+    const cov0 = src().coverage;
+    const logins = cov0.metrics.newLogins ? seriesFor("newLogins", ids, start, end) : null;
+
+    // No actuals anywhere in the selected dates: a school year that has not
+    // been published. Nothing below may compute on it; the cards show the
+    // same week last year instead.
+    const hasActuals = hasActualsIn(from, to);
+    const lastYearWau = windowMean("wau", ids, addDays(end, -YOY_LAG), 7);
+    const now = evalDate();
 
     const cov = src().coverage;
     const seats = seatsOf(ids);
-    const wauNow = windowMean("wau", ids, src().asOf, 7);
+    const wauNow = windowMean("wau", ids, now, 7);
     // Null seats means the source has no licence count, so there is no rate to
     // report. Dividing by whatever else is to hand would produce a confident
     // figure answering a different question.
     const activeRate = wauNow != null && seats != null && seats > 0 ? wauNow / seats : null;
 
-    const wauCh = adjustedChange("wau", ids, src().asOf, 7);
+    const wauCh = adjustedChange("wau", ids, now, 7);
     // A metric the source does not carry reads as 0, and 0 renders as a
     // confident "0%" rather than a dash. Check presence before the arithmetic.
-    const ahaNow = cov.metrics.ahaUsers ? windowMean("ahaUsers", ids, src().asOf, 7) : null;
+    const ahaNow = cov.metrics.ahaUsers ? windowMean("ahaUsers", ids, now, 7) : null;
     const ahaRate = ahaNow != null && wauNow ? ahaNow / wauNow : null;
-    const ahaCh = adjustedChange("ahaUsers", ids, src().asOf, 14);
+    const ahaCh = adjustedChange("ahaUsers", ids, now, 14);
     const ret = cov.metrics.retentionW4
-      ? seatWeightedRate("retentionW4", ids, src().asOf, 7)
+      ? seatWeightedRate("retentionW4", ids, now, 7)
       : null;
-    const resCh = adjustedChange("resourceOpens", ids, src().asOf, 14);
+    const resCh = adjustedChange("resourceOpens", ids, now, 14);
 
-    const recent = campaignsInWindow(30);
+    const recent = campaignsBetween(from, to);
     const reached = reachedIn(
       recent.map((c) => c.id),
       ids
@@ -79,6 +90,9 @@ export default function ExecutiveOverview() {
     const { insights, suppressed } = buildInsights(ids, win);
     return {
       series,
+      logins,
+      hasActuals,
+      lastYearWau,
       seats,
       wauNow,
       activeRate,
@@ -93,7 +107,7 @@ export default function ExecutiveOverview() {
       insights,
       suppressed,
     };
-  }, [ids, range, metric, win]);
+  }, [ids, from, to, metric, win]);
 
   if (!ids.length || !model) {
     return (
@@ -104,6 +118,10 @@ export default function ExecutiveOverview() {
   }
 
   const isPMM = view === "Product Marketing";
+  // "2026/27" → "26/27", the way the year is spoken about.
+  const yearShort = schoolYear.slice(2);
+  const empty = (lastYear: string | null = null) =>
+    model.hasActuals ? undefined : { title: `No ${yearShort} data yet`, lastYear };
 
   return (
     <div className="flex flex-col gap-6">
@@ -114,6 +132,7 @@ export default function ExecutiveOverview() {
       >
         <KpiCard
           primary
+          empty={empty()}
           label="Active teacher rate"
           info={KPI_INFO.activeRate}
           value={model.activeRate == null ? "—" : (model.activeRate * 100).toFixed(1)}
@@ -127,6 +146,7 @@ export default function ExecutiveOverview() {
           }
         />
         <KpiCard
+          empty={empty(model.lastYearWau == null ? null : int(model.lastYearWau))}
           label="Weekly active teachers"
           info={KPI_INFO.wau}
           value={int(model.wauNow)}
@@ -135,6 +155,7 @@ export default function ExecutiveOverview() {
           note="Rolling 7 days"
         />
         <KpiCard
+          empty={empty()}
           label="Adoption rate"
           info={KPI_INFO.adoption}
           value={model.ahaRate == null ? "—" : (model.ahaRate * 100).toFixed(0)}
@@ -148,6 +169,7 @@ export default function ExecutiveOverview() {
           }
         />
         <KpiCard
+          empty={empty()}
           label="4-week retention"
           info={KPI_INFO.retention}
           value={model.ret == null ? "—" : (model.ret * 100).toFixed(0)}
@@ -160,6 +182,7 @@ export default function ExecutiveOverview() {
         />
         <KpiCard
           caveat
+          empty={empty()}
           label="Campaign-associated"
           info={KPI_INFO.campaignAssociated}
           value={model.assoc == null ? "—" : pct(model.assoc)}
@@ -168,7 +191,7 @@ export default function ExecutiveOverview() {
               ? "Exposure-weighted change on each campaign's objective vs. baseline"
               : !src().coverage.canAdjust
               ? "Needs a prior year to compare against. Without one nothing can be seasonally adjusted."
-              : "No campaign has a complete attribution window yet"
+              : "No campaign has a complete before/after window yet"
           }
         />
       </section>
@@ -181,7 +204,14 @@ export default function ExecutiveOverview() {
         >
           What changed
         </h2>
-        <InsightStrip insights={model.insights} suppressed={model.suppressed} />
+        {model.hasActuals ? (
+          <InsightStrip insights={model.insights} suppressed={model.suppressed} />
+        ) : (
+          <EmptyState title={`No ${yearShort} data yet`}>
+            Changes are reported once {schoolYear} usage is published. Until then the trend below
+            shows {priorYearOf(schoolYear)} as a dotted line.
+          </EmptyState>
+        )}
       </section>
 
       {/* Marketing impact + trend */}
@@ -193,7 +223,7 @@ export default function ExecutiveOverview() {
                 className="text-sm font-extrabold uppercase"
                 style={{ color: T.navy, letterSpacing: "0.07em" }}
               >
-                Marketing impact · last 30 days
+                Marketing impact · {fmtRange(from, to)}
               </h2>
               <p className="mt-1 text-xs" style={{ color: T.muted }}>
                 What marketing did, and what happened in Edwin afterward.
@@ -230,7 +260,7 @@ export default function ExecutiveOverview() {
           <div className="mt-5 flex flex-wrap items-center gap-4 text-xs" style={{ color: T.muted }}>
             <span className="flex items-center gap-2">
               <span style={{ width: 18, height: 3, background: T.blue, display: "inline-block" }} />
-              {METRIC_LABEL[metric as keyof typeof METRIC_LABEL] ?? metric}
+              {SERIES_LABEL[metric] ?? metric}
             </span>
             <span className="flex items-center gap-2">
               <span
@@ -241,25 +271,43 @@ export default function ExecutiveOverview() {
                   display: "inline-block",
                 }}
               />
-              Seasonal baseline (prior year)
+              {LAST_YEAR_LABEL}
             </span>
+            {model.logins && (
+              <span className="flex items-center gap-2">
+                <span style={{ width: 18, height: 3, background: T.logins, display: "inline-block" }} />
+                New logged-in teachers (right axis)
+              </span>
+            )}
             <span className="flex items-center gap-2">
               <span style={{ color: T.warn, fontSize: 14 }}>▲</span> Campaign launch — click to open
             </span>
           </div>
 
           <div className="mt-2">
+            {!model.hasActuals && (
+              <p className="mb-2 text-xs font-semibold" style={{ color: T.soft }}>
+                No {schoolYear} data published yet — dotted line shows {priorYearOf(schoolYear)}.
+              </p>
+            )}
+            {model.hasActuals && !model.series.some((p) => p.baseline != null) && (
+              <p className="mb-2 text-xs" style={{ color: T.muted }}>
+                No {priorYearOf(schoolYear)} data, so there is no dotted line for these dates.
+              </p>
+            )}
             <TrendChart
               series={model.series}
               metric={metric}
-              campaigns={[...src().campaigns]}
+              logins={model.logins}
+              campaigns={model.recent}
               onPick={openCampaign}
             />
           </div>
 
           <p className="mt-2 text-xs" style={{ color: T.muted, lineHeight: 1.6 }}>
-            The shaded band is the gap between what happened and what the prior year predicts would
-            have happened anyway. Proximity of a marker to a change does not establish that the
+            The dotted line is the same week last school year; where both lines exist, the shaded
+            band is the gap between them. New logged-in teachers are teachers logging in for the
+            first time that week. Proximity of a marker to a change does not establish that the
             campaign caused it.
           </p>
         </Card>
@@ -272,7 +320,7 @@ export default function ExecutiveOverview() {
             className="text-sm font-extrabold uppercase"
             style={{ color: T.navy, letterSpacing: "0.07em" }}
           >
-            Campaign contribution · last 30 days
+            Campaign contribution · {fmtRange(from, to)}
           </h2>
           <p className="mt-1 mb-2 text-xs" style={{ color: T.muted }}>
             Channel engagement beside the product behaviour that followed it. Select a row to open the
@@ -280,7 +328,7 @@ export default function ExecutiveOverview() {
           </p>
           {model.recent.length === 0 ? (
             <div className="py-6 text-sm" style={{ color: T.muted }}>
-              No campaigns launched in this window.
+              No campaigns sent in these dates.
             </div>
           ) : (
             <table className="w-full">

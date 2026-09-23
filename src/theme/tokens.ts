@@ -15,6 +15,7 @@ export const T = {
   warn: "#E8633A",
   good: "#1F8A70",
   baseline: "#9BB0C4",
+  logins: "#7C5CBF", // new logged-in teachers, the second trend line
   railTint: "#0B2745",
   font: "Nunito, 'Segoe UI', system-ui, -apple-system, sans-serif",
 } as const;

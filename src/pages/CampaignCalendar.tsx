@@ -7,6 +7,9 @@ import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import type { PublicCampaign, Release } from "../data/schema";
 import { src } from "../data/source";
+import { campaignsBetween } from "../analytics/attribution";
+import { useFilters } from "../state/filterStore";
+import { fmtRange } from "../lib/dates";
 import { T } from "../theme/tokens";
 import { Card } from "../components/primitives";
 import { typeColor, RELEASE_COLOR, CampaignTypeLegend } from "../components/campaignStyle";
@@ -21,8 +24,15 @@ const parts = (iso: string) => {
 
 export default function CampaignCalendar() {
   const navigate = useNavigate();
-  // Default to August 2026, where campaign activity clusters.
-  const [ym, setYm] = useState({ y: 2026, m: 7 });
+  const { from, to } = useFilters();
+  const inRange = useMemo(() => campaignsBetween(from, to), [from, to]);
+  // Open on the month of the latest campaign in the selected dates, or the
+  // month the dates end in when none was sent.
+  const [ym, setYm] = useState(() => {
+    const latest = [...inRange].sort((a, b) => b.launch.localeCompare(a.launch))[0];
+    const p = parts(latest ? latest.launch : to);
+    return { y: p.y, m: p.m };
+  });
 
   const first = new Date(Date.UTC(ym.y, ym.m, 1));
   const startDow = first.getUTCDay();
@@ -37,7 +47,7 @@ export default function CampaignCalendar() {
     const campByDay = new Map<number, PublicCampaign[]>();
     const relByDay = new Map<number, Release[]>();
     let monthCount = 0;
-    for (const c of src().campaigns) {
+    for (const c of inRange) {
       const p = parts(c.launch);
       if (p.y === ym.y && p.m === ym.m) {
         (campByDay.get(p.day) ?? campByDay.set(p.day, []).get(p.day)!).push(c);
@@ -50,7 +60,7 @@ export default function CampaignCalendar() {
         (relByDay.get(p.day) ?? relByDay.set(p.day, []).get(p.day)!).push(r);
     }
     return { campByDay, relByDay, monthCount };
-  }, [ym]);
+  }, [ym, inRange]);
 
   const step = (delta: number) => {
     setYm((s) => {
@@ -165,8 +175,8 @@ export default function CampaignCalendar() {
       </Card>
 
       <p className="text-xs" style={{ color: T.muted, lineHeight: 1.6 }}>
-        Campaign activity clusters across June–August 2026. Click a chip to open that campaign's impact
-        detail. Product releases are overlaid as outlined tags.
+        Shows campaigns sent in the selected dates ({inRange.length} in {fmtRange(from, to)}). Click a
+        chip to open that campaign's impact detail. Product releases are overlaid as outlined tags.
       </p>
     </div>
   );

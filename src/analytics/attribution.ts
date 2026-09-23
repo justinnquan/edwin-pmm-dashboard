@@ -9,6 +9,7 @@ import { src } from "../data/source";
 import { addDays, daysBetween, fromIso } from "../lib/dates";
 import { MIN_N, MIN_DAILY_ACTIVE, WAU_TO_DAILY, MATERIALITY, CONFIDENCE_Z } from "./constants";
 import { windowMean, windowStats, adjustedSE } from "./kpis";
+import { evalDate } from "./period";
 
 /** Distinct teachers exposed to at least one of these campaigns, within the
     current segment filter. A union, not a sum: a teacher reached by three
@@ -19,12 +20,17 @@ export function reachedIn(campaignIds: string[], ids: number[]): number | null {
 }
 
 export function campaignsInWindow(days: number): PublicCampaign[] {
-  const asOf = src().asOf;
+  const asOf = evalDate();
   const from = addDays(asOf, -days);
   return src().campaigns.filter((c) => {
     const d = fromIso(c.launch);
     return d >= from && d <= asOf;
   });
+}
+
+/** Campaigns launched within the selected dates, inclusive. */
+export function campaignsBetween(from: string, to: string): PublicCampaign[] {
+  return src().campaigns.filter((c) => c.launch >= from && c.launch <= to);
 }
 
 /* Before vs. after for one campaign: seasonally adjusted, N-gated, volume-gated,

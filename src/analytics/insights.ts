@@ -8,6 +8,7 @@ import { src } from "../data/source";
 import { addDays, fmtShort } from "../lib/dates";
 import { MIN_N, METRIC_LABEL } from "./constants";
 import { adjustedChange, seatsIfStock } from "./kpis";
+import { evalDate } from "./period";
 import { campaignImpact, campaignsInWindow } from "./attribution";
 import { pct } from "./format";
 
@@ -31,7 +32,7 @@ export function buildInsights(
   let suppressed = 0;
 
   // R1 — seasonality guard on the headline metric.
-  const wow = adjustedChange("wau", ids, src().asOf, 7);
+  const wow = adjustedChange("wau", ids, evalDate(), 7);
   if (wow) {
     if (Math.abs(wow.raw) >= 0.1 && !wow.material) {
       out.push({
@@ -82,8 +83,8 @@ export function buildInsights(
         (id) => cells[id].province === p && cells[id].grade === g
       );
       if (!segIds.length) continue;
-      const seats = seatsIfStock(src().asOf, segIds) ?? 0;
-      const ch = adjustedChange("classesCreated", segIds, src().asOf, 14);
+      const seats = seatsIfStock(evalDate(), segIds) ?? 0;
+      const ch = adjustedChange("classesCreated", segIds, evalDate(), 14);
       if (!ch) continue;
       if (seats < MIN_N) {
         suppressed++;

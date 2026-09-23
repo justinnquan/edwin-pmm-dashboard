@@ -102,7 +102,14 @@ export const DAILY_FACTS: TableSpec = {
       name: "cumulative_logins",
       required: false,
       kind: "number",
-      why: "Running total of distinct teachers who have ever logged in. Charted as an adoption curve; deliberately never used as a denominator, because a figure that never sheds anyone makes every rate built on it fall regardless of behaviour.",
+      why: "Running total of distinct teachers who have ever logged in. Never used as a denominator, because a figure that never sheds anyone makes every rate built on it fall regardless of behaviour. When new_logins is absent it is differenced into new logins per week.",
+    },
+    {
+      name: "new_logins",
+      required: false,
+      kind: "number",
+      metric: "newLogins",
+      why: "Distinct teachers logging in for the first time in a rolling 7 days — the line that shows spikes after a send. Derived from cumulative_logins when that is supplied instead.",
     },
     {
       name: "retention_w4",
@@ -125,6 +132,7 @@ export const DAILY_FACTS: TableSpec = {
     "310",
     "486",
     "",
+    "42",
     "0.51",
   ],
 };

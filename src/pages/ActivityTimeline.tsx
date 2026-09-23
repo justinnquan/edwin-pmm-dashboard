@@ -1,7 +1,7 @@
 /* ===========================================================================
    /pages — MARKETING ACTIVITY TIMELINE (§03)
    An activity lane (campaign + release markers) aligned above stacked,
-   selectable metric lanes, each carrying its seasonal baseline. Marker click
+   selectable metric lanes, each carrying the same week last school year. Marker click
    opens Campaign Impact. Association only — no causality is implied.
 =========================================================================== */
 import { useMemo, useState, type CSSProperties } from "react";
@@ -16,10 +16,10 @@ import {
   ReferenceLine,
   ResponsiveContainer,
 } from "recharts";
-import type { Metric, SeriesPoint } from "../data/schema";
+import type { SummableMetric, SeriesPoint } from "../data/schema";
 import { src } from "../data/source";
-import { addDays, fmtShort } from "../lib/dates";
-import { METRIC_LABEL } from "../analytics/constants";
+import { fmtAxis, fmtShort, fromIso } from "../lib/dates";
+import { SERIES_LABEL, LAST_YEAR_LABEL } from "../analytics/constants";
 import { int, pct } from "../analytics/format";
 import { cellFilter, seriesFor } from "../analytics/kpis";
 import { useFilters } from "../state/filterStore";
@@ -29,8 +29,9 @@ import { typeColor, RELEASE_COLOR, CampaignTypeLegend } from "../components/camp
 
 const LEFT = 52; // must equal each lane's YAxis width
 const RIGHT = 16; // must equal each lane's right margin
-const ALL_TIMELINE_METRICS: Metric[] = [
+const ALL_TIMELINE_METRICS: SummableMetric[] = [
   "wau",
+  "newLogins",
   "resourceOpens",
   "assignmentsCreated",
   "classesCreated",
@@ -39,7 +40,7 @@ const ALL_TIMELINE_METRICS: Metric[] = [
 
 /** Only the lanes this source can draw. Offering the rest gives the reader a
     button that produces a flat zero line indistinguishable from a collapse. */
-const timelineMetrics = (): Metric[] =>
+const timelineMetrics = (): SummableMetric[] =>
   ALL_TIMELINE_METRICS.filter((m) => src().coverage.metrics[m]);
 
 const ms = (dateStr: string): number => new Date(dateStr + "T00:00:00Z").getTime();
@@ -52,7 +53,7 @@ function LaneTooltip({ active, payload, label }: any) {
   if (!active || !payload || !payload.length) return null;
   const v = payload.find((p: any) => p.dataKey === "value");
   const b = payload.find((p: any) => p.dataKey === "baseline");
-  const gap = v && b && b.value ? v.value / b.value - 1 : null;
+  const gap = v?.value != null && b?.value ? v.value / b.value - 1 : null;
   return (
     <div
       className="rounded-md p-2 text-xs"
@@ -62,16 +63,16 @@ function LaneTooltip({ active, payload, label }: any) {
         {fmtShort(label)}
       </div>
       <div className="mt-1 flex justify-between gap-4" style={num}>
-        <span style={{ color: T.soft }}>Actual</span>
+        <span style={{ color: T.soft }}>This period</span>
         <b style={{ color: T.blue }}>{int(v?.value)}</b>
       </div>
       <div className="flex justify-between gap-4" style={num}>
-        <span style={{ color: T.soft }}>Baseline</span>
+        <span style={{ color: T.soft }}>{LAST_YEAR_LABEL}</span>
         <b style={{ color: T.baseline }}>{int(b?.value)}</b>
       </div>
       {gap != null && (
         <div className="mt-1 flex justify-between gap-4" style={num}>
-          <span style={{ color: T.soft }}>Gap</span>
+          <span style={{ color: T.soft }}>Vs. last year</span>
           <b style={{ color: gap >= 0 ? T.good : T.warn }}>{pct(gap)}</b>
         </div>
       )}
@@ -84,7 +85,7 @@ function MetricLane({
   series,
   showX,
 }: {
-  metric: Metric;
+  metric: SummableMetric;
   series: SeriesPoint[];
   showX: boolean;
 }) {
@@ -95,14 +96,14 @@ function MetricLane({
         className="absolute z-10 text-xs font-bold uppercase"
         style={{ left: LEFT + 6, top: 4, color: T.soft, letterSpacing: "0.04em" }}
       >
-        {METRIC_LABEL[metric]}
+        {SERIES_LABEL[metric]}
       </div>
       <ResponsiveContainer>
         <ComposedChart data={series} margin={{ top: 6, right: RIGHT, left: 0, bottom: 0 }}>
           <CartesianGrid stroke={T.border} vertical={false} />
           <XAxis
             dataKey="date"
-            tickFormatter={fmtShort}
+            tickFormatter={fmtAxis}
             tick={showX ? { fontSize: 11, fill: T.muted } : false}
             axisLine={{ stroke: T.border }}
             tickLine={false}
@@ -136,6 +137,7 @@ function MetricLane({
             strokeWidth={2}
             dot={false}
             isAnimationActive={false}
+            connectNulls={false}
           />
         </ComposedChart>
       </ResponsiveContainer>
@@ -146,23 +148,23 @@ function MetricLane({
 /* ---- page ----------------------------------------------------------------- */
 export default function ActivityTimeline() {
   const navigate = useNavigate();
-  const { province, grade, subject, range } = useFilters();
+  const { province, grade, subject, from: fromKey, to: toKey } = useFilters();
   const ids = useMemo(() => cellFilter({ province, grade, subject }), [province, grade, subject]);
 
-  const from = addDays(src().asOf, -range);
-  const to = src().asOf;
+  const from = fromIso(fromKey);
+  const to = fromIso(toKey);
   const fromMs = from.getTime();
   const toMs = to.getTime();
   const span = Math.max(1, toMs - fromMs);
   const fracOf = (dateStr: string): number => (ms(dateStr) - fromMs) / span;
 
-  const [selected, setSelected] = useState<Metric[]>(["wau"]);
-  const toggle = (m: Metric) =>
+  const [selected, setSelected] = useState<SummableMetric[]>(["wau"]);
+  const toggle = (m: SummableMetric) =>
     setSelected((s) => (s.includes(m) ? s.filter((x) => x !== m) : [...s, m]));
 
   const seriesByMetric = useMemo(
     () => selected.map((m) => ({ metric: m, series: seriesFor(m, ids, from, to) })),
-    [selected, ids, range]
+    [selected, ids, fromKey, toKey]
   );
 
   const campaigns = useMemo(
@@ -195,7 +197,7 @@ export default function ActivityTimeline() {
                   border: `1px solid ${on ? T.blue : T.border}`,
                 }}
               >
-                {METRIC_LABEL[m]}
+                {SERIES_LABEL[m]}
               </button>
             );
           })}
@@ -284,9 +286,9 @@ export default function ActivityTimeline() {
       </Card>
 
       <p className="text-xs" style={{ color: T.muted, lineHeight: 1.6 }}>
-        Each lane shows the metric (solid) against its prior-year seasonal baseline (dashed). Vertical
+        Each lane shows the metric (solid) against the same week last school year (dotted). Vertical
         navy lines and diamonds mark product releases. Click a triangle to open that campaign's impact
-        detail. Date range and segment come from the global filters.
+        detail. School year, dates and segment come from the global filters.
       </p>
     </div>
   );

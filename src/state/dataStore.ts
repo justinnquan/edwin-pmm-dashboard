@@ -17,6 +17,7 @@ import type { DataSource } from "../data/schema";
 import { src, setSource, resetSource } from "../data/source";
 import { fetchLive } from "../data/live";
 import { clearImport } from "../data/file/persist";
+import { useFilters } from "./filterStore";
 
 export type DataStatus = "ready" | "loading" | "error";
 export type DataMode = "sample" | "live" | "preview";
@@ -87,6 +88,9 @@ export const useDataSource = create<DataState>((set, getState) => ({
   live: { status: "idle" },
   swap: (next) => {
     setSource(next);
+    // A new source spans different dates; keep the selected year and range
+    // inside what it can show.
+    useFilters.getState().refit();
     set((s) => ({
       status: "ready",
       sourceId: next.id,
@@ -97,6 +101,7 @@ export const useDataSource = create<DataState>((set, getState) => ({
   },
   reset: () => {
     resetSource();
+    useFilters.getState().refit();
     set((s) => ({
       status: "ready",
       sourceId: src().id,

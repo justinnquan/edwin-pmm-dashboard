@@ -13,6 +13,7 @@ import type { SummableMetric } from "../data/schema";
 import { src } from "../data/source";
 import { addDays, iso } from "../lib/dates";
 import { sumOn, windowMean, seatsIfStock } from "./kpis";
+import { evalDate } from "./period";
 
 export const DAY7_TARGET = 0.7; // Day-7 activation OKR
 export const MONTHLY_TARGET = 0.5; // monthly LMS-active OKR
@@ -23,7 +24,7 @@ const clamp = (v: number, lo: number, hi: number): number => Math.max(lo, Math.m
     genuine licence count. Null rather than 0 so callers report "unavailable"
     instead of dividing by a number that is not a denominator. */
 export function seatsOf(ids: number[]): number | null {
-  return seatsIfStock(src().asOf, ids);
+  return seatsIfStock(evalDate(), ids);
 }
 
 /** Whether a metric exists in the active source at all. A metric that is
@@ -39,7 +40,7 @@ function perActive(metric: SummableMetric, ids: number[], days: number): number 
   let act = 0;
   let n = 0;
   for (let i = 0; i < days; i++) {
-    const d = addDays(src().asOf, -i);
+    const d = addDays(evalDate(), -i);
     const f = sumOn(iso(d), metric, ids);
     const a = sumOn(iso(d), "dailyActive", ids);
     if (f != null && a != null) {
@@ -62,7 +63,7 @@ function activeShares(
   ids: number[]
 ): { seats: number | null; wau: number; wauRate: number | null; monthly: number | null } {
   const seats = seatsOf(ids);
-  const wau = windowMean("wau", ids, src().asOf, 7) ?? 0;
+  const wau = windowMean("wau", ids, evalDate(), 7) ?? 0;
   if (seats == null || seats <= 0) return { seats, wau, wauRate: null, monthly: null };
   const wauRate = clamp(wau / seats, 0, 0.95);
   const monthly = clamp(1 - Math.pow(1 - wauRate, 4), 0, 0.98);
@@ -172,8 +173,8 @@ export interface FeatureAdoption {
 }
 
 export function featureAdoption(ids: number[]): FeatureAdoption[] {
-  const wau = windowMean("wau", ids, src().asOf, 7) ?? 0;
-  const ahaNow = windowMean("ahaUsers", ids, src().asOf, 7) ?? 0;
+  const wau = windowMean("wau", ids, evalDate(), 7) ?? 0;
+  const ahaNow = windowMean("ahaUsers", ids, evalDate(), 7) ?? 0;
   // A feature the source does not track is not a feature at 0% adoption. Each
   // bar is dropped rather than drawn empty, because an explicit absence from
   // the list reads correctly and a 0% bar reads as a finding.
