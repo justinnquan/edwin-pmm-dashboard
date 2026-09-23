@@ -32,6 +32,8 @@ import { publishLive } from "../data/live";
 import { fmtShort } from "../lib/dates";
 import { usageFromMarkdown, campaignsFromWorkbook } from "../data/file/edwin";
 import { int } from "../analytics/format";
+import { Collapsible } from "../components/Collapsible";
+import { ManualEditor } from "../components/ManualEditor";
 import { METRIC_LABEL } from "../analytics/constants";
 
 const TONE: Record<Severity, { color: string; label: string }> = {
@@ -355,17 +357,10 @@ function EdwinImport({
   const ready = !!usage && !!book;
 
   return (
-    <Card className="p-5" style={{ borderColor: T.blue }}>
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-sm font-extrabold uppercase" style={{ color: T.navy, letterSpacing: "0.07em" }}>
-          Load your Edwin exports
-        </h2>
-        <Chip tone="blue">No conversion needed</Chip>
-      </div>
-      <p className="mt-2 text-xs" style={{ color: T.soft, lineHeight: 1.6 }}>
+    <div>
+      <p className="text-xs" style={{ color: T.soft, lineHeight: 1.6 }}>
         Takes the two files as they are: the weekly usage rollup as a markdown table, and the
-        Pardot / YesWare / in-app workbook as .xlsx. Everything below this card is the generic CSV
-        route, for when a segmented export arrives from Power BI.
+        Pardot / YesWare / in-app workbook as .xlsx.
       </p>
 
       <div className="mt-4 flex flex-col gap-3">
@@ -434,7 +429,7 @@ function EdwinImport({
           {error}
         </p>
       )}
-    </Card>
+    </div>
   );
 }
 
@@ -445,6 +440,17 @@ export default function DataImport() {
   const [raw, setRaw] = useState<InputFiles | null>(null);
   const [busy, setBusy] = useState(false);
   const { label, mode, live, toSample } = useDataSource();
+  const [origin, setOrigin] = useState("");
+  // Remounts the report for each new result, so its Preview / Publish state
+  // never carries over from the previous one.
+  const [reportKey, setReportKey] = useState(0);
+  const showReport = (r: ValidationReport, input: InputFiles, from: string) => {
+    setReport(r);
+    setRaw(input);
+    setOrigin(from);
+    setReportKey((k) => k + 1);
+    requestAnimationFrame(() => document.getElementById("validation-report")?.scrollIntoView({ behavior: "smooth" }));
+  };
 
   const ready = TABLES.filter((t) => t.required).every((t) => files[t.file]);
 
@@ -498,66 +504,91 @@ export default function DataImport() {
         </p>
       </Card>
 
-      <EdwinImport
-        onReport={(r, input) => {
-          setReport(r);
-          setRaw(input);
-        }}
-      />
+      <h2 className="mt-2 text-xs font-bold uppercase" style={{ color: T.muted, letterSpacing: "0.08em" }}>
+        Get data in — choose one
+      </h2>
 
-      <div className="text-xs font-bold uppercase mt-2" style={{ color: T.muted, letterSpacing: "0.08em" }}>
-        Or load generic CSV
-      </div>
+      <Collapsible
+        title="Load your Edwin exports"
+        summary="The weekly usage .md and the campaign .xlsx, exactly as you keep them."
+        badge={<Chip tone="blue">No conversion needed</Chip>}
+        defaultOpen
+      >
+        <EdwinImport onReport={(r, input) => showReport(r, input, "your Edwin exports")} />
+      </Collapsible>
 
-      {TABLES.map((t) => (
-        <TableCard
-          key={t.file}
-          spec={t}
-          file={files[t.file]}
-          onPick={(f) => {
-            setFiles((prev) => ({ ...prev, [t.file]: f }));
-            setReport(null);
-          }}
-        />
-      ))}
+      <Collapsible
+        title="Manual data"
+        summary="Change, add or remove weekly usage, campaigns and releases by hand — no file needed."
+        badge={<Chip tone="muted">Starts from Live</Chip>}
+      >
+        <ManualEditor onReport={(r, input) => showReport(r, input, "manual edits")} />
+      </Collapsible>
 
-      <div className="flex items-center gap-3">
-        <button
-          disabled={!ready || busy}
-          onClick={async () => {
-            setBusy(true);
-            try {
-              const read = async (f?: File) => (f ? await f.text() : undefined);
-              const input: InputFiles = {
-                dailyFacts: await read(files[DAILY_FACTS.file]),
-                campaigns: await read(files[CAMPAIGNS_TABLE.file]),
-                reach: await read(files[CAMPAIGN_REACH.file]),
-                releases: await read(files[RELEASES_TABLE.file]),
-                label: "Imported CSV",
-              };
-              setRaw(input);
-              setReport(buildFileSource(input));
-            } finally {
-              setBusy(false);
-            }
-          }}
-          className="rounded px-4 py-2 text-sm font-bold"
-          style={{
-            color: T.surface,
-            background: ready && !busy ? T.blue : T.muted,
-            cursor: ready && !busy ? "pointer" : "not-allowed",
-          }}
-        >
-          {busy ? "Validating…" : "Validate"}
-        </button>
-        {!ready && (
-          <span className="text-xs" style={{ color: T.muted }}>
-            daily_facts.csv and campaigns.csv are both required.
-          </span>
-        )}
-      </div>
+      <Collapsible
+        title="Load generic CSV"
+        summary="For a segmented export from Power BI, in the column contract below. Templates included."
+        badge={<Chip tone="muted">4 files · 2 required</Chip>}
+      >
+        <div className="flex flex-col gap-3">
+          {TABLES.map((t) => (
+            <TableCard
+              key={t.file}
+              spec={t}
+              file={files[t.file]}
+              onPick={(f) => {
+                setFiles((prev) => ({ ...prev, [t.file]: f }));
+                setReport(null);
+              }}
+            />
+          ))}
 
-      {report && <Report report={report} raw={raw} />}
+          <div className="flex items-center gap-3">
+            <button
+              disabled={!ready || busy}
+              onClick={async () => {
+                setBusy(true);
+                try {
+                  const read = async (f?: File) => (f ? await f.text() : undefined);
+                  const input: InputFiles = {
+                    dailyFacts: await read(files[DAILY_FACTS.file]),
+                    campaigns: await read(files[CAMPAIGNS_TABLE.file]),
+                    reach: await read(files[CAMPAIGN_REACH.file]),
+                    releases: await read(files[RELEASES_TABLE.file]),
+                    label: "Imported CSV",
+                  };
+                  showReport(buildFileSource(input), input, "generic CSV");
+                } finally {
+                  setBusy(false);
+                }
+              }}
+              className="rounded px-4 py-2 text-sm font-bold"
+              style={{
+                color: T.surface,
+                background: ready && !busy ? T.blue : T.muted,
+                cursor: ready && !busy ? "pointer" : "not-allowed",
+              }}
+            >
+              {busy ? "Validating…" : "Validate"}
+            </button>
+            {!ready && (
+              <span className="text-xs" style={{ color: T.muted }}>
+                daily_facts.csv and campaigns.csv are both required.
+              </span>
+            )}
+          </div>
+
+        </div>
+      </Collapsible>
+
+      {report && (
+        <div id="validation-report" className="flex flex-col gap-2" style={{ scrollMarginTop: 16 }}>
+          <div className="text-xs font-bold uppercase" style={{ color: T.muted, letterSpacing: "0.08em" }}>
+            Result · from {origin}
+          </div>
+          <Report key={reportKey} report={report} raw={raw} />
+        </div>
+      )}
     </div>
   );
 }

@@ -26,7 +26,14 @@ async function reason(res: Response, fallback: string): Promise<string> {
   }
 }
 
-export async function fetchLive(password: string): Promise<LiveResult> {
+export type LiveInputResult =
+  | { kind: "ready"; input: InputFiles; publishedAt: string }
+  | { kind: "locked" | "empty" | "unavailable" | "error"; message: string };
+
+/** The published exports exactly as stored, before they become a source.
+    The manual editor starts from these, so an edit changes what was
+    published rather than a copy that has already been interpreted. */
+export async function fetchLiveInput(password: string): Promise<LiveInputResult> {
   let res: Response;
   try {
     res = await fetch("/api/live", { headers: { "x-live-password": password }, cache: "no-store" });
@@ -45,13 +52,22 @@ export async function fetchLive(password: string): Promise<LiveResult> {
         "The live data service is not running here. Live works on the deployed site, or locally under vercel dev.",
     };
   if (!res.ok) return { kind: "error", message: await reason(res, `Live data failed (${res.status}).`) };
-
   try {
     const body = (await res.json()) as { publishedAt: string; input: InputFiles };
-    const report = buildFileSource({ ...body.input, label: LIVE_LABEL });
+    return { kind: "ready", input: body.input, publishedAt: body.publishedAt };
+  } catch {
+    return { kind: "error", message: "The published data could not be read." };
+  }
+}
+
+export async function fetchLive(password: string): Promise<LiveResult> {
+  const r = await fetchLiveInput(password);
+  if (r.kind !== "ready") return r;
+  try {
+    const report = buildFileSource({ ...r.input, label: LIVE_LABEL });
     if (!report.usable || !report.source)
       return { kind: "error", message: "The published data no longer validates. Re-publish it from Data Import." };
-    return { kind: "ready", source: report.source, publishedAt: body.publishedAt };
+    return { kind: "ready", source: report.source, publishedAt: r.publishedAt };
   } catch {
     return { kind: "error", message: "The published data could not be read." };
   }

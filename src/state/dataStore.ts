@@ -75,6 +75,12 @@ function write(key: string, value: string | null): void {
     in session storage and is restored separately. */
 export const storedMode = (): "sample" | "live" => (read(MODE_KEY) === "live" ? "live" : "sample");
 
+/** The Live password this browser last unlocked with, if any. */
+export const storedLivePassword = (): string | null => read(PW_KEY);
+
+/** Remember a Live password that has just been accepted. */
+export const rememberLivePassword = (pw: string): void => write(PW_KEY, pw);
+
 /** Guards against a slow Live fetch landing after the reader has moved on. */
 let request = 0;
 

@@ -45,8 +45,11 @@ function with Vercel Blob for Live data
 - **Viewing Live.** The first switch to Live asks for the shared Live password, which is then
   remembered in that browser. Until real data has loaded, Live shows a locked, loading or
   "nothing published" state in place of every page — it never renders the synthetic data underneath.
-- **Updating Live.** On **Data Import** (`/data`), load the two exports as they are kept (the `.md`
-  rollup and the `.xlsx` workbook), read the validation report, then either:
+- **Updating Live.** **Data Import** (`/data`) has three collapsible routes in: **Load your Edwin
+  exports** (the `.md` rollup and `.xlsx` workbook as they are kept), **Manual data** (loads what
+  Live holds — weekly usage, campaigns, releases — so rows can be changed, added or removed by hand
+  without a file), and **Load generic CSV** (the Power BI contract, with templates). Each ends in the
+  same validation report, then either:
   - **Preview in this tab** — the dashboard uses the files in this tab only. Nothing is uploaded; it
     survives a reload and is discarded when the tab closes. Choosing Sample or Live ends it.
   - **Publish as Live** — enter the publish password and the parsed exports replace what Live shows

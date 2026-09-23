@@ -74,7 +74,7 @@ export const HISTORY_NEEDED = YOY_LAG + BASELINE_SMOOTH + 7;
 
 export type Row = Record<string, string>;
 
-function parseCsv(text: string): Row[] {
+export function parseCsv(text: string): Row[] {
   const out = Papa.parse<Row>(text.trim(), {
     header: true,
     skipEmptyLines: true,
