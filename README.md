@@ -31,22 +31,23 @@ in place rather than showing a zero:
   to divide by it.
 - **No segment views.** The usage export is platform-wide.
 
-`HANDOFF.md` is the full reference; `docs/DATA-REQUIREMENTS.md` is the ask for the BI team.
+`HANDOFF.md` is the full reference for the project as it stands; `HANDOFFV2.md` and `HANDOFFV3.md` record how
+it got there. `docs/DATA-REQUIREMENTS.md` is the ask for the BI team.
 
 ## Stack
 
-React 18 · TypeScript · Vite · Tailwind v4 · Recharts · Zustand · React Router · one Vercel
-function with Vercel Blob for Live data
+React 18 · TypeScript · Vite · Tailwind v4 · Recharts · Zustand · React Router · PapaParse ·
+react-day-picker · one Vercel function with Vercel Blob for Live data
 
-## Sample and Live
+## Live and Sample
 
-- **Switching.** The toggle applies to every page and is remembered per browser. On phones it sits at
-  the start of the top section nav.
+- **Switching.** The toggle (Live on the left, Sample on the right) applies to every page and is
+  remembered per browser. On phones it sits at the start of the top section nav.
 - **Viewing Live.** The first switch to Live asks for the shared Live password, which is then
   remembered in that browser. Until real data has loaded, Live shows a locked, loading or
   "nothing published" state in place of every page — it never renders the synthetic data underneath.
 - **Updating Live.** **Data Import** (`/data`) has three collapsible routes in: **Load your Edwin
-  exports** (the `.md` rollup and `.xlsx` workbook as they are kept), **Manual data** (loads what
+  exports** (the `.md` rollup plus the campaign sheet as `.xlsx` or saved as `.csv`, as they are kept), **Manual data** (loads what
   Live holds — weekly usage, campaigns, releases — so rows can be changed, added or removed by hand
   without a file), and **Load generic CSV** (the Power BI contract, with templates). Each ends in the
   same validation report, then either:
@@ -116,8 +117,8 @@ Start on **Sample** to see the full method, then switch to **Live** to see what 
    unavailable, naming the missing seat count and event data.
 6. **Segments** (`/segments`, PMM view). Segment comparison and opportunity ranking, with small cells
    gated to *insufficient data*. On Live this reports that the export is platform-wide.
-7. **Data Import** (`/data`). Validation report, preview and publish (see above), plus a generic CSV
-   route with downloadable templates for when a segmented Power BI export arrives.
+7. **Data Import** (`/data`). Three collapsible routes in — Edwin exports, Manual data, generic CSV —
+   each ending in the validation report with Preview and Publish (see above).
 
 **What to look for.** The dashboard never asserts causation, never shows a raw change wearing an
 adjusted label, and hides underpowered or unsupported figures rather than show a misleading number —
@@ -135,16 +136,18 @@ data through one function, `src()`, so replacing the source replaces the whole a
 api/
   live.ts      Vercel function: password-gated read/publish of the private Live blob
 src/
-  lib/         pure date arithmetic
+  lib/         pure date arithmetic and school-year helpers
   theme/       design tokens (placeholder for Phia)
   data/        THE SWAP POINT — the DataSource contract and its implementations
     source.ts     src() / setSource() — the only door to data
     synthetic.ts  the seeded generator, wrapped (Sample)
     live.ts       client for /api/live (Live)
     file/         CSV / markdown / .xlsx parsing, validation, session persistence
-  analytics/   KPI calc, seasonal adjustment, gating, attribution, insight rules
+  analytics/   KPI calc, seasonal adjustment, gating, attribution, insight rules,
+               reporting period (school years, evalDate)
   state/       Zustand: global filters, and the data-source mode + version signal
-  components/  Layout shell, Sample/Live toggle, Live gate, KPI cards, charts, tables, states
+  components/  Layout shell, Live/Sample toggle, Live gate, date picker, KPI cards, charts,
+               manual data editor, tables, states
   pages/       Overview · Marketing Performance · Campaign Impact · Timeline ·
                Adoption · Segments · Calendar · Data Import
 ```
