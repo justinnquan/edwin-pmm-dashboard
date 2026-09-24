@@ -11,8 +11,8 @@ import { useDataSource } from "../state/dataStore";
 export function SourceToggle({ compact = false }: { compact?: boolean }) {
   const { mode, toSample, toLive } = useDataSource();
   const options = [
-    { key: "sample", label: "Sample", pick: toSample },
     { key: "live", label: "Live", pick: () => void toLive() },
+    { key: "sample", label: "Sample", pick: toSample },
   ] as const;
 
   return (

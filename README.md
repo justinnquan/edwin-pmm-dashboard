@@ -9,16 +9,16 @@ awareness to activation to engagement to adoption to retention, and where should
 
 ## Status
 
-The dashboard runs on either of two data sources, switched with the **Sample / Live** toggle at the
+The dashboard runs on either of two data sources, switched with the **Live / Sample** toggle at the
 bottom of the left rail:
 
 | Mode | What it shows |
 |---|---|
 | **Sample** | Seeded synthetic data. Illustrative only — must not be quoted as Edwin performance. It exercises every view, including the ones real data cannot fill yet. |
-| **Live** | The real 25/26 Edwin exports, and nothing else: the weekly usage rollup (48 weeks, Aug 2025 → Jun 2026) and the Pardot / YesWare / in-app campaign workbook (67 campaigns, Sept 2025 → Mar 2026). Password protected. |
+| **Live** | The real 25/26 Edwin exports, and nothing else: the weekly usage rollup (48 weeks, Aug 2025 → Jun 2026) and the Pardot / YesWare campaign sheet (57 campaigns, Sept 2025 → Mar 2026). Password protected. |
 
 On Live, the weekly-active trend, **new logged-in teachers per week** (differenced from the
-cumulative login count), all 67 campaigns with their real channel metrics, campaign drill-downs, the
+cumulative login count), all 57 campaigns with their real channel metrics, campaign drill-downs, the
 timeline and the calendar all work. The **2026/27** school year shows "No 26/27 data yet" with 25/26
 as a dotted line until 26/27 usage is published. Three things do not, and the dashboard says so
 in place rather than showing a zero:
@@ -88,7 +88,7 @@ Until this is done, Live reports that it is not configured.
 ## Reviewer walkthrough
 
 Open the [live dashboard](https://edwin-pmm-dashboard.vercel.app). It lands on the **Executive
-Overview**. Three controls shape everything: **Sample / Live** (bottom-left), the **Leadership /
+Overview**. Three controls shape everything: **Live / Sample** (bottom-left), the **Leadership /
 Product Marketing** toggle (top right — Leadership is the 30-second read; Product Marketing unlocks
 the operating detail), and the **global filter bar** (school year, dates, compare before/after, and
 province / grade / subject where the source has them). The **Methodology** button in the strip explains how
