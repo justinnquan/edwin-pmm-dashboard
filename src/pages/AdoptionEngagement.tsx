@@ -53,10 +53,10 @@ export default function AdoptionEngagement() {
     <div className="flex flex-col gap-6">
       {/* Modelled-data caveat */}
       <div
-        className="rounded p-3 text-xs flex items-start gap-2"
-        style={{ background: "#FFF6F2", border: `1px solid ${T.warn}33`, color: T.soft, lineHeight: 1.6 }}
+        className="rounded-md px-4 py-3 text-sm flex items-start gap-3"
+        style={{ background: T.cautionBg, border: "1px solid #F2D79A", color: T.soft, lineHeight: 1.6 }}
       >
-        <span style={{ color: T.warn, fontWeight: 700 }}>Modelled from aggregate data.</span>
+        <span className="shrink-0" style={{ color: T.caution, fontWeight: 700 }}>Modelled from aggregate data.</span>
         The funnel stages and activation rates are estimated from daily metric aggregates, not counted
         from per-user cohort events. They are deterministic and directional; a real deployment would
         count distinct per-teacher journey events (invite → first login → first resource → class →
@@ -65,16 +65,16 @@ export default function AdoptionEngagement() {
 
       {/* Funnel + gauges */}
       <section className="grid gap-4 grid-cols-1 lg:grid-cols-[1.6fr_1fr]">
-        <Card className="p-5">
+        <Card className="p-6">
           <div className="flex items-center justify-between">
-            <h2 className="text-sm font-extrabold uppercase" style={{ color: T.navy, letterSpacing: "0.07em" }}>
+            <h2 className="text-lg font-bold" style={{ color: T.ink, lineHeight: "24px" }}>
               Activation funnel
             </h2>
             <span className="text-xs" style={{ color: T.muted }}>
               {model.seats == null ? "no licence count in this source" : `${int(model.seats)} provisioned`}
             </span>
           </div>
-          <p className="mt-1 mb-4 text-xs" style={{ color: T.muted }}>
+          <p className="mt-1 mb-4 text-sm" style={{ color: T.muted }}>
             Invited → First login → First resource → Class created → Assignment / student invited,
             mapped to Edwin's J1–J5 onboarding journeys.
           </p>
@@ -91,15 +91,15 @@ export default function AdoptionEngagement() {
         <div className="flex flex-col gap-4">
           {model.gauges ? (
             <>
-              <Card className="p-5">
+              <Card className="p-6">
                 <Gauge gauge={model.gauges.day7} info={KPI_INFO.day7} />
               </Card>
-              <Card className="p-5">
+              <Card className="p-6">
                 <Gauge gauge={model.gauges.monthly} info={KPI_INFO.monthly} />
               </Card>
             </>
           ) : (
-            <Card className="p-5">
+            <Card className="p-6">
               <Unavailable
                 title="OKR gauges unavailable"
                 detail="Both gauges are shares of the licensed teacher population, and this source has no licence count. Provisioned seats per period would restore them — they are what the 70% Day-7 and 50% monthly-active OKRs are defined against."
@@ -110,11 +110,11 @@ export default function AdoptionEngagement() {
       </section>
 
       {/* Feature adoption */}
-      <Card className="p-5">
-        <h2 className="text-sm font-extrabold uppercase" style={{ color: T.navy, letterSpacing: "0.07em" }}>
+      <Card className="p-6">
+        <h2 className="text-lg font-bold" style={{ color: T.ink, lineHeight: "24px" }}>
           Feature adoption
         </h2>
-        <p className="mt-1 mb-4 text-xs" style={{ color: T.muted }}>
+        <p className="mt-1 mb-4 text-sm" style={{ color: T.muted }}>
           Share of active teachers using each LMS feature in the last 30 days.
         </p>
         {model.features.length ? (
@@ -131,7 +131,7 @@ export default function AdoptionEngagement() {
       {model.trends.length > 0 && (
       <section>
         <div className="mb-3 flex items-center gap-3">
-          <h2 className="text-sm font-extrabold uppercase" style={{ color: T.navy, letterSpacing: "0.07em" }}>
+          <h2 className="text-lg font-bold" style={{ color: T.ink, lineHeight: "24px" }}>
             Resource, classroom &amp; assignment behaviour
           </h2>
           <Chip tone="muted">vs. seasonal baseline</Chip>

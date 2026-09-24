@@ -1,7 +1,7 @@
 # Edwin PMM Dashboard — Project Handoff
 
 **Owner:** Justin Quan, Product Marketing Manager, Nelson Education
-**Last updated:** September 24, 2026 · **Version:** 0.3.0
+**Last updated:** September 24, 2026 · **Version:** 0.4.0
 **Status:** **Live on real Edwin data**, password protected. A Live / Sample toggle switches the whole dashboard between the published 25/26 exports (48 weeks of usage, 57 Pardot / YesWare campaigns) and the seeded synthetic demo. The dashboard is organised by school year; 2026/27 shows "No 26/27 data yet" with 25/26 as a dotted line until this year's usage is published. Seasonal adjustment is still not possible because there is no prior year; see "What the real data can and cannot do".
 
 ---
@@ -65,6 +65,7 @@ npm run gen:requirements # regenerate docs/DATA-REQUIREMENTS.md from the CSV sch
 | `HANDOFF.md` | This file. The reference doc — architecture, files, metrics, what to ask for. It describes the project **as it stands**. Start here. |
 | `HANDOFFV2.md` | The record of the 21–22 Sept 2026 session: the statistical fixes going live, the data seam, and the first real-data import. |
 | `HANDOFFV3.md` | The record of the 22–24 Sept 2026 sessions: Live hosting and the toggle, school years and the dotted line, new logins, the date controls, the Data Import rework and manual editor, and the cleaned campaign data. |
+| `HANDOFFV4.md` | The record of the 24 Sept 2026 redesign onto the Phia design system (v0.4.0). Presentation only. |
 | `docs/DATA-REQUIREMENTS.md` | Field-by-field ask for the Edwin BI team, tiered into Track A / Track B. **Generated** from `src/data/file/schema.ts`, so it cannot drift from what the app accepts. |
 | `docs/Edwin_PMM_Dashboard_PRD_and_Prototype_Plan.md` | The full 8-phase PRD: critical assessment, requirements, information architecture, KPI framework, data model, mockup spec, build plan, open questions. The design bible. |
 | `docs/PHASE-C_EdwinExecutiveOverview.jsx` | The original Phase C single-file prototype. Superseded, kept for historical reference. |
@@ -78,7 +79,7 @@ There is also a shareable web version of the data requirements, published as a p
 
 React 18, TypeScript, Vite, Tailwind v4, Recharts, Zustand, React Router, PapaParse (CSV), react-day-picker (the date calendar). One Vercel serverless function with `@vercel/blob` for Live data. Deployed on Vercel.
 
-Design tokens are a placeholder for the Phia design system (Nelson's internal system). The current palette uses Edwin brand colours (primary blue `#017ACC`, dark blue `#003865`, accent orange `#E8633A`), plus a purple `#7C5CBF` for the new-logins line. Swapping to Phia is a single-object replacement in `src/theme/tokens.ts`.
+The look is **Phia**, Edwin's design system (the "Phia by Edwin" design-system project). `src/theme/tokens.ts` holds its tokens: Edwin blue `#017ACC` and its tints, the warm neutral ramp on an off-white `#FEFDFB` canvas, green-500 `#189E4E` for positive change, red-600 `#D5401B` for negative, violet-500 `#8686FC` for the new-logins line, and Phia's soft shadows. The old key names are kept (`navy` is Phia blue-800, `warn` is red-600), so no call site had to change. Text is Source Sans Pro (Phia's own font files, bundled in `src/assets/fonts/`, OFL); numbers use Inter via the `num` token, loaded from Google Fonts in `index.html`. The official edwin logotype is in `src/assets/brand/`.
 
 The version shown bottom-left of the app is read from `package.json` at build time. Bump it for each release.
 
@@ -96,7 +97,7 @@ api/
   live.ts       Vercel function: password-gated read / publish of the private Live blob
 src/
   lib/          Pure date arithmetic and school-year helpers — importable by anyone
-  theme/        Design tokens (placeholder for Phia)
+  theme/        Phia design tokens
   data/         THE SWAP POINT — schema, the DataSource contract, and its implementations
     synthetic.ts    the seeded generator, wrapped as a DataSource (Sample)
     live.ts         client for /api/live (Live)
@@ -186,7 +187,9 @@ Adding a Power BI or API source means writing one more implementation of that in
 | File | Purpose |
 |---|---|
 | `Layout.tsx` | App shell: left rail, top bar, filter bar (school year, Dates, Compare before/after, segments), methodology strip, view toggle. The strip is driven by the active source. Hides the filters and strip while Live is waiting, and renders `LiveGate` in place of pages. Keys `<Outlet>` on the data version so a swap remounts cleanly. |
-| `Rail.tsx` | Left navigation rail, with the Live / Sample toggle and version in its footer. |
+| `Rail.tsx` | Phia side-nav: edwin logotype, icon + label items, the Live / Sample toggle and version in its footer. |
+| `EdwinLogo.tsx` | The official edwin logotype, cropped to its letterforms so it can be sized by height. |
+| `Icon.tsx` | Phia line icons inlined as SVG (they take `currentColor`), plus the campaign-marker triangle. Phia forbids unicode glyphs as icons; its chevron, rotated, serves every direction. |
 | `SourceToggle.tsx` | The **Live / Sample** segmented control (Live on the left). Also shown in the mobile nav. In Preview neither side is selected. |
 | `LiveGate.tsx` | Locked (password), loading, nothing-published and unavailable states for Live. |
 | `DateRangePicker.tsx` | The **Dates** button and popover: presets (Last 30 days, Last 90 days, Whole school year) beside a two-month range calendar that disables every day the dashboard cannot show. One month on narrow screens; keeps itself on screen. |
@@ -204,7 +207,7 @@ Adding a Power BI or API source means writing one more implementation of that in
 | `campaignStyle.tsx` | Campaign type colour mapping and legend. |
 | `Provenance.tsx` | Footer line stating which source the figures come from. |
 | `nav.ts` | Navigation config. |
-| `primitives.tsx` | Card, Chip, Select. |
+| `primitives.tsx` | Phia Card, badge (Chip), Select, and the shared `fieldStyle` / `sectionTitle`. Tables get Phia styling from the `phia-table` class in `index.css`. |
 | `states.tsx` / `ErrorBoundary.tsx` | Empty, loading, error and insufficient-data states. |
 
 **Pages** (`src/pages/`)
@@ -414,10 +417,11 @@ School years run Aug 1 → Jun 30, so anything dated in July appears in no year 
 - **Publish confirmation flashes.** After **Publish as Live** the dashboard swaps onto Live and the page remounts, so the "Published…" line disappears almost at once. The Current source chip ("Live · published …") confirms it.
 - **Two real campaigns cannot load.** Edwin NLI Touchpoint #1 (Dec 7 2025) and the YesWare Edwin Admin Update (Oct 21 2025) have no delivered count in the sheet, so they have no audience size.
 - **In-app notifications are off Live.** The cleaned sheet covers Pardot and YesWare only; the 11 notification campaigns were removed on purpose. Re-add them through Manual data or a future export if they are wanted.
+- **Two lines of copy predate the redesign.** The Sample footer (`Provenance.tsx`) still says design tokens are "a placeholder pending the Phia system", and the error card (`ErrorBoundary.tsx`) calls the app "a prototype on synthetic data". Both were left word-for-word because the redesign changed no copy; the first is now untrue.
 
 ### Deferred by design
 
-Phia design tokens (`src/theme/tokens.ts` is still a placeholder), true exposed/unexposed holdouts (a campaign-ops process change, not a dashboard feature), the account/board view (gated on board data existing), per-person sign-in for Live (a shared password is used instead), and longitudinal cohort retention curves.
+True exposed/unexposed holdouts (a campaign-ops process change, not a dashboard feature), the account/board view (gated on board data existing), per-person sign-in for Live (a shared password is used instead), and longitudinal cohort retention curves.
 
 ---
 
@@ -513,7 +517,7 @@ Browser QA has been done on localhost for every page, on Sample and on the real 
 3. Can we get provisioned-teacher counts per account per period — and per segment, or only per board?
 4. How many months of *consistent* product-event history exist? Is there any 24/25 usage?
 5. Is campaign ops able to reserve a randomised holdout before send?
-6. Can we get the Phia design-token file to theme the dashboard?
+~~6. Can we get the Phia design-token file to theme the dashboard?~~ **Settled:** themed with Phia in v0.4.0.
 7. For how many accounts is board-level data actually populated?
 8. Should in-app notifications return to Live, and from which export?
 

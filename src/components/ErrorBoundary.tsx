@@ -36,8 +36,8 @@ export class ErrorBoundary extends Component<Props, State> {
   render() {
     if (this.state.error) {
       return (
-        <Card className="p-6" style={{ borderColor: T.warn }}>
-          <div className="text-base font-bold" style={{ color: T.ink }}>
+        <Card className="p-6" style={{ borderColor: T.error, background: T.warnBg }}>
+          <div className="text-lg font-bold" style={{ color: T.ink }}>
             Something went wrong rendering this view
           </div>
           <div className="mt-1 text-sm" style={{ color: T.muted, lineHeight: 1.6, maxWidth: 560 }}>
@@ -46,7 +46,7 @@ export class ErrorBoundary extends Component<Props, State> {
           </div>
           <pre
             className="mt-3 rounded p-3 text-xs"
-            style={{ background: T.bg, color: T.soft, overflowX: "auto", border: `1px solid ${T.border}` }}
+            style={{ background: T.surface, color: T.soft, overflowX: "auto", border: `1px solid ${T.border}` }}
           >
             {this.state.error.message}
           </pre>

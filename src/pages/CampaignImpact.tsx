@@ -36,9 +36,10 @@ import {
   campaignInterpretation,
 } from "../analytics/campaign";
 import { useFilters } from "../state/filterStore";
-import { T, num } from "../theme/tokens";
-import { Card, Chip } from "../components/primitives";
+import { T, num, eyebrow } from "../theme/tokens";
+import { Card, Chip, fieldStyle } from "../components/primitives";
 import { ProductImpactGrid, impactMetrics } from "../components/ProductImpact";
+import { Icon } from "../components/Icon";
 
 const toneColor = { positive: T.good, negative: T.warn, watch: T.blue } as const;
 
@@ -57,7 +58,7 @@ export function CampaignPicker() {
               <div className="mt-2 text-sm font-bold" style={{ color: T.ink }}>
                 {c.name}
               </div>
-              <div className="mt-1 text-xs" style={{ color: T.muted }}>
+              <div className="mt-1 text-sm" style={{ color: T.muted }}>
                 {c.channel} · {fmtShort(c.launch)} · {int(c.sends)} sends
               </div>
             </Card>
@@ -78,8 +79,9 @@ export default function CampaignImpact() {
         <div className="text-base font-bold" style={{ color: T.ink }}>
           Campaign not found
         </div>
-        <Link to="/marketing" className="mt-2 inline-block text-sm" style={{ color: T.blue }}>
-          ← Back to Marketing Performance
+        <Link to="/marketing" className="mt-2 inline-flex items-center gap-2 text-sm font-bold" style={{ color: T.blue }}>
+          <Icon name="chevron-left" size={11} />
+          Back to Marketing Performance
         </Link>
       </Card>
     );
@@ -114,11 +116,11 @@ function Detail({ campaign }: { campaign: PublicCampaign }) {
   return (
     <div className="flex flex-col gap-6">
       {/* Summary header */}
-      <Card className="p-5" style={{ borderColor: T.blue }}>
+      <Card className="p-6" style={{ borderColor: T.blue }}>
         <div className="flex items-start justify-between gap-4">
           <div>
             <Chip tone="blue">{campaign.type}</Chip>
-            <div className="mt-2 text-xl font-extrabold" style={{ color: T.ink }}>
+            <div className="mt-2 text-2xl font-bold" style={{ color: T.ink }}>
               {campaign.name}
             </div>
             <div className="text-xs" style={{ color: T.muted }}>
@@ -127,10 +129,11 @@ function Detail({ campaign }: { campaign: PublicCampaign }) {
           </div>
           <button
             onClick={() => navigate("/marketing")}
-            className="rounded px-2 py-1 text-xs font-semibold"
-            style={{ color: T.soft, border: `1px solid ${T.border}` }}
+            className="phia-ghost rounded-md px-3 py-1.5 text-sm font-bold inline-flex items-center gap-2 shrink-0"
+            style={{ color: T.blue, border: `1px solid ${T.blue}`, background: T.surface }}
           >
-            ← All campaigns
+            <Icon name="chevron-left" size={11} />
+            All campaigns
           </button>
         </div>
 
@@ -145,11 +148,11 @@ function Detail({ campaign }: { campaign: PublicCampaign }) {
             { k: "CTR", v: (campaignCTR(campaign) * 100).toFixed(1) + "%" },
             { k: "CTOR", v: ctor == null ? "N/A" : (ctor * 100).toFixed(1) + "%" },
           ].map((s) => (
-            <div key={s.k} className="rounded p-3" style={{ background: T.bg, border: `1px solid ${T.border}` }}>
-              <div className="text-xs font-bold uppercase" style={{ color: T.muted, letterSpacing: "0.05em" }}>
+            <div key={s.k} className="rounded-lg p-4" style={{ background: T.bg, border: `1px solid ${T.border}` }}>
+              <div className="text-xs font-bold uppercase" style={eyebrow}>
                 {s.k}
               </div>
-              <div className="mt-1 text-lg font-extrabold" style={{ ...num, color: T.ink }}>
+              <div className="mt-1 text-lg font-bold" style={{ ...num, color: T.ink }}>
                 {s.v}
               </div>
             </div>
@@ -159,7 +162,7 @@ function Detail({ campaign }: { campaign: PublicCampaign }) {
 
       {/* Product impact */}
       <section>
-        <h2 className="mb-3 text-sm font-extrabold uppercase" style={{ color: T.navy, letterSpacing: "0.07em" }}>
+        <h2 className="mb-3 text-lg font-bold" style={{ color: T.ink, lineHeight: "24px" }}>
           Product impact · {windowLabel(localWin)} before vs. after
         </h2>
         <ProductImpactGrid campaign={campaign} ids={ids} windowDays={localWin} />
@@ -168,14 +171,14 @@ function Detail({ campaign }: { campaign: PublicCampaign }) {
       {/* Controls for the analysis metric + window + adjustment */}
       <Card className="p-4 flex flex-wrap items-center gap-x-6 gap-y-3">
         <label className="flex flex-col gap-1">
-          <span className="text-xs font-bold uppercase" style={{ color: T.muted, letterSpacing: "0.05em" }}>
+          <span className="text-xs font-bold uppercase" style={eyebrow}>
             Metric analysed
           </span>
           <select
             value={METRIC_LABEL[metric]}
             onChange={(e) => setMetric(metricByLabel.get(e.target.value) ?? metric)}
-            className="rounded px-2 py-1 text-sm"
-            style={{ border: `1px solid ${T.border}`, background: T.surface, color: T.ink, minWidth: 220 }}
+            className="px-2 text-sm"
+            style={{ ...fieldStyle, minWidth: 220, height: 34 }}
           >
             {available.map((m) => (
               <option key={m} value={METRIC_LABEL[m]}>
@@ -197,9 +200,9 @@ function Detail({ campaign }: { campaign: PublicCampaign }) {
 
       {/* Before vs After */}
       <section className="grid gap-4" style={{ gridTemplateColumns: "repeat(auto-fit,minmax(320px,1fr))" }}>
-        <Card className="p-5">
+        <Card className="p-6">
           <div className="flex items-center justify-between">
-            <h2 className="text-sm font-extrabold uppercase" style={{ color: T.navy, letterSpacing: "0.07em" }}>
+            <h2 className="text-lg font-bold" style={{ color: T.ink, lineHeight: "24px" }}>
               Before vs. after
             </h2>
             <Chip tone="muted">Observational</Chip>
@@ -208,9 +211,7 @@ function Detail({ campaign }: { campaign: PublicCampaign }) {
             <>
               <div className="mt-4 flex items-center justify-between gap-3">
                 <BeforeAfterCol label={`Before · ${windowLabel(localWin)}`} value={int(impact.pre)} />
-                <div className="text-2xl" style={{ color: T.muted }}>
-                  →
-                </div>
+                <Icon name="chevron" size={16} style={{ color: T.faint }} />
                 <BeforeAfterCol label={`After · ${windowLabel(localWin)}`} value={int(impact.post)} />
               </div>
               <div className="mt-4 pt-4 flex items-baseline justify-between" style={{ borderTop: `1px solid ${T.border}` }}>
@@ -218,7 +219,7 @@ function Detail({ campaign }: { campaign: PublicCampaign }) {
                   {adjust ? "Seasonally adjusted change" : "Raw change"}
                 </span>
                 <span
-                  className="text-3xl font-extrabold"
+                  className="text-3xl font-bold"
                   style={{
                     ...num,
                     color: (adjust ? impact.adjusted : impact.raw) >= 0 ? T.good : T.warn,
@@ -233,7 +234,7 @@ function Detail({ campaign }: { campaign: PublicCampaign }) {
                   )}
                 </span>
               </div>
-              <p className="mt-2 text-xs" style={{ color: T.muted, lineHeight: 1.6 }}>
+              <p className="mt-2 text-sm" style={{ color: T.muted, lineHeight: 1.6 }}>
                 Raw {pct(impact.raw)}. Prior-year baseline moved {pct(impact.expected)} over the same
                 calendar window; the adjusted figure divides the two. Called material only when it
                 clears both the {pctAbs(MATERIALITY)} floor and its own uncertainty band (here ±
@@ -251,14 +252,14 @@ function Detail({ campaign }: { campaign: PublicCampaign }) {
         </Card>
 
         {/* Targeted segment vs. rest of platform */}
-        <Card className="p-5">
+        <Card className="p-6">
           <div className="flex items-center justify-between gap-2">
-            <h2 className="text-sm font-extrabold uppercase" style={{ color: T.navy, letterSpacing: "0.07em" }}>
+            <h2 className="text-lg font-bold" style={{ color: T.ink, lineHeight: "24px" }}>
               Targeted segment vs. rest of platform
             </h2>
             <Chip tone="warn">Not a control</Chip>
           </div>
-          <p className="mt-1 text-xs" style={{ color: T.muted, lineHeight: 1.5 }}>
+          <p className="mt-1 text-sm" style={{ color: T.muted, lineHeight: 1.5 }}>
             Not a matched control. The comparison group differs systematically from the targeted group.
           </p>
           {sc.state === "ok" ? (
@@ -275,23 +276,23 @@ function Detail({ campaign }: { campaign: PublicCampaign }) {
                   Difference (targeted − rest)
                 </span>
                 <span
-                  className="text-3xl font-extrabold"
+                  className="text-3xl font-bold"
                   style={{ ...num, color: sc.lift >= 0 ? T.good : T.warn }}
                 >
                   {pct(sc.lift)}
                 </span>
               </div>
-              <p className="mt-2 text-xs" style={{ color: T.muted, lineHeight: 1.6 }}>
+              <p className="mt-2 text-sm" style={{ color: T.muted, lineHeight: 1.6 }}>
                 {int(sc.n)} exposed teachers vs. non-targeted teachers on the platform. Different
                 populations with different seasonality — directional context, not a controlled effect.
               </p>
             </>
           ) : sc.state === "no-holdout" ? (
             <div
-              className="mt-4 rounded p-4"
-              style={{ background: "#FFF6F2", border: `1px solid ${T.warn}` }}
+              className="mt-4 rounded-md p-4"
+              style={{ background: T.cautionBg, border: "1px solid #F2D79A" }}
             >
-              <div className="text-sm font-extrabold" style={{ color: T.warn }}>
+              <div className="text-base font-bold" style={{ color: T.caution }}>
                 No comparison group exists
               </div>
               <p className="mt-1 text-sm" style={{ color: T.soft, lineHeight: 1.6 }}>
@@ -309,9 +310,9 @@ function Detail({ campaign }: { campaign: PublicCampaign }) {
       </section>
 
       {/* Cohort progression */}
-      <Card className="p-5">
+      <Card className="p-6">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-sm font-extrabold uppercase" style={{ color: T.navy, letterSpacing: "0.07em" }}>
+          <h2 className="text-lg font-bold" style={{ color: T.ink, lineHeight: "24px" }}>
             Cohort progression · week over week
           </h2>
           {verdict !== "insufficient" && (
@@ -324,7 +325,7 @@ function Detail({ campaign }: { campaign: PublicCampaign }) {
             </Chip>
           )}
         </div>
-        <p className="mt-1 text-xs" style={{ color: T.muted }}>
+        <p className="mt-1 text-sm" style={{ color: T.muted }}>
           Adjusted change for {METRIC_LABEL[metric]}, tracked each week since launch. Only weeks that
           clear their own uncertainty band count toward the verdict, so a noisy run cannot read as a
           lasting shift.
@@ -349,7 +350,7 @@ function Detail({ campaign }: { campaign: PublicCampaign }) {
                   formatter={(v: unknown) =>
                     typeof v === "number" ? `${v >= 0 ? "+" : ""}${v.toFixed(1)}%` : "—"
                   }
-                  contentStyle={{ fontSize: 12, borderRadius: 6, border: `1px solid ${T.border}` }}
+                  contentStyle={{ fontSize: 12, borderRadius: 8, border: `1px solid ${T.border}`, boxShadow: T.shadowMd, fontFamily: T.fontUI }}
                 />
                 <ReferenceLine y={0} stroke={T.baseline} strokeDasharray="4 4" />
                 <Line
@@ -373,20 +374,20 @@ function Detail({ campaign }: { campaign: PublicCampaign }) {
 
       {/* Interpretation */}
       <section>
-        <h2 className="mb-3 text-sm font-extrabold uppercase" style={{ color: T.navy, letterSpacing: "0.07em" }}>
+        <h2 className="mb-3 text-lg font-bold" style={{ color: T.ink, lineHeight: "24px" }}>
           Interpretation
         </h2>
         {interp ? (
-          <Card className="p-5" style={{ borderLeft: `3px solid ${toneColor[interp.tone]}` }}>
+          <Card className="p-6" style={{ borderLeft: `3px solid ${toneColor[interp.tone]}` }}>
             <div className="text-sm font-semibold" style={{ color: T.ink, lineHeight: 1.5 }}>
               {interp.text}
             </div>
-            <div className="mt-1 text-xs" style={{ color: T.muted, lineHeight: 1.6 }}>
+            <div className="mt-1 text-sm" style={{ color: T.muted, lineHeight: 1.6 }}>
               {interp.detail}
             </div>
           </Card>
         ) : (
-          <Card className="p-5">
+          <Card className="p-6">
             <div className="text-sm" style={{ color: T.muted }}>
               No deterministic statement clears the materiality and minimum-sample gates for this
               campaign in the current segment.
@@ -396,8 +397,8 @@ function Detail({ campaign }: { campaign: PublicCampaign }) {
       </section>
 
       <div
-        className="rounded p-3 text-xs"
-        style={{ background: T.bg, color: T.soft, lineHeight: 1.6 }}
+        className="rounded-md px-4 py-3 text-sm"
+        style={{ background: T.blue100, border: `1px solid ${T.blue300}`, color: T.soft, lineHeight: 1.6 }}
       >
         <b style={{ color: T.ink }}>How to read this.</b> Adjusted change divides the observed
         before/after movement by the movement in the prior-year baseline over the same calendar
@@ -413,10 +414,10 @@ function Detail({ campaign }: { campaign: PublicCampaign }) {
 function BeforeAfterCol({ label, value, tone = T.ink }: { label: string; value: string; tone?: string }) {
   return (
     <div className="flex-1 text-center">
-      <div className="text-xs font-bold uppercase" style={{ color: T.muted, letterSpacing: "0.05em" }}>
+      <div className="text-xs font-bold uppercase" style={eyebrow}>
         {label}
       </div>
-      <div className="mt-1 text-2xl font-extrabold" style={{ ...num, color: tone }}>
+      <div className="mt-1 text-2xl font-bold" style={{ ...num, color: tone }}>
         {value}
       </div>
     </div>
@@ -523,7 +524,7 @@ function BeforeAfterChart({
             <Tooltip
               labelFormatter={(l: string) => fmtShort(l)}
               formatter={(v: unknown) => (typeof v === "number" ? int(v) : "—")}
-              contentStyle={{ fontSize: 12, borderRadius: 6, border: `1px solid ${T.border}` }}
+              contentStyle={{ fontSize: 12, borderRadius: 8, border: `1px solid ${T.border}`, boxShadow: T.shadowMd, fontFamily: T.fontUI }}
             />
             <ReferenceLine
               x={campaign.launch}
@@ -555,7 +556,7 @@ function BeforeAfterChart({
         </ResponsiveContainer>
       </div>
       {!hasPrior && (
-        <p className="mt-1 text-xs" style={{ color: T.muted }}>
+        <p className="mt-1 text-sm" style={{ color: T.muted }}>
           No {prior} data for this window, so there is no dotted line to compare against.
         </p>
       )}

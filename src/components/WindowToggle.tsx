@@ -3,7 +3,7 @@
    How many days either side of a send are compared. Same control in the
    global filter bar and on Campaign Impact, so the wording cannot drift.
 =========================================================================== */
-import { T } from "../theme/tokens";
+import { T, eyebrow } from "../theme/tokens";
 
 export const WINDOW_OPTIONS = [
   { days: 7, label: "1 week" },
@@ -22,23 +22,23 @@ export function WindowToggle({ value, onChange }: { value: number; onChange: (da
     <div className="flex flex-col gap-1">
       <span
         className="text-xs font-bold uppercase flex items-center gap-1"
-        style={{ color: T.muted, letterSpacing: "0.05em" }}
+        style={eyebrow}
       >
         Compare before/after
         <span
           title={WINDOW_HINT}
           aria-label={WINDOW_HINT}
           className="inline-flex items-center justify-center rounded-full"
-          style={{ width: 14, height: 14, border: `1px solid ${T.muted}`, fontSize: 9, cursor: "help", textTransform: "none" }}
+          style={{ width: 14, height: 14, border: `1px solid ${T.faint}`, fontSize: 9, cursor: "help", textTransform: "none", letterSpacing: 0 }}
         >
           i
         </span>
       </span>
       <div
-        className="flex rounded p-0.5"
+        className="flex rounded-md p-0.5"
         role="radiogroup"
         aria-label="Compare before/after"
-        style={{ background: T.bg, border: `1px solid ${T.border}` }}
+        style={{ background: T.subtle, border: `1px solid ${T.border}`, height: 34 }}
       >
         {WINDOW_OPTIONS.map((o) => {
           const on = value === o.days;
@@ -49,11 +49,11 @@ export function WindowToggle({ value, onChange }: { value: number; onChange: (da
               role="radio"
               aria-checked={on}
               onClick={() => onChange(o.days)}
-              className="rounded px-2.5 py-0.5 text-sm font-semibold whitespace-nowrap"
+              className="rounded px-2.5 text-sm font-bold whitespace-nowrap"
               style={{
                 background: on ? T.surface : "transparent",
                 color: on ? T.blue : T.muted,
-                border: on ? `1px solid ${T.border}` : "1px solid transparent",
+                boxShadow: on ? T.shadowXs : "none",
               }}
             >
               {o.label}

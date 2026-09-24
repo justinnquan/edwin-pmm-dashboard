@@ -13,6 +13,7 @@ import { Link } from "react-router-dom";
 import { T } from "../theme/tokens";
 import { useDataSource } from "../state/dataStore";
 import { EmptyState, PageLoading } from "./states";
+import { fieldStyle } from "./primitives";
 
 const linkStyle = { color: T.surface, background: T.blue, textDecoration: "none" } as const;
 
@@ -40,14 +41,14 @@ export function LiveGate() {
             aria-label="Live password"
             placeholder="Password"
             autoComplete="current-password"
-            className="rounded px-2 py-1 text-sm"
-            style={{ border: `1px solid ${T.border}`, color: T.ink, background: T.surface }}
+            className="px-2.5 text-sm"
+            style={{ ...fieldStyle, height: 34 }}
           />
           <button
             type="submit"
             disabled={!pw}
-            className="rounded px-3 py-1 text-sm font-bold"
-            style={{ color: T.surface, background: pw ? T.blue : T.muted }}
+            className="rounded-md px-4 py-1.5 text-sm font-bold"
+            style={{ color: pw ? T.surface : T.faint, background: pw ? T.blue : T.border }}
           >
             Unlock
           </button>
@@ -67,7 +68,7 @@ export function LiveGate() {
         Load your 25/26 exports — the weekly usage rollup and the campaign workbook — on Data Import,
         validate them, and publish them as Live.
         <div className="mt-3">
-          <Link to="/data" className="inline-block rounded px-3 py-1 text-sm font-bold" style={linkStyle}>
+          <Link to="/data" className="inline-block rounded-md px-3 py-1.5 text-sm font-bold" style={linkStyle}>
             Go to Data Import
           </Link>
         </div>
@@ -82,12 +83,12 @@ export function LiveGate() {
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <button
           onClick={() => void toLive()}
-          className="rounded px-3 py-1 text-sm font-bold"
-          style={{ color: T.blue, border: `1px solid ${T.blue}55`, background: T.surface }}
+          className="phia-ghost rounded-md px-3 py-1.5 text-sm font-bold"
+          style={{ color: T.blue, border: `1px solid ${T.blue}`, background: T.surface }}
         >
           Retry
         </button>
-        <Link to="/data" className="inline-block rounded px-3 py-1 text-sm font-bold" style={linkStyle}>
+        <Link to="/data" className="inline-block rounded-md px-3 py-1.5 text-sm font-bold" style={linkStyle}>
           Go to Data Import
         </Link>
       </div>

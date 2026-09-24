@@ -1,5 +1,60 @@
 @import "tailwindcss";
 
+/* --- Phia typefaces --------------------------------------------------------
+   Source Sans Pro is Edwin's typeface; the files are Phia's own, bundled here
+   (SIL Open Font License, see assets/fonts/OFL.txt). Inter, for numbers and
+   UI chrome, is loaded from Google Fonts in index.html. */
+@font-face {
+  font-family: "Source Sans Pro";
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  src: url("./assets/fonts/SourceSansPro-Regular.ttf") format("truetype");
+}
+@font-face {
+  font-family: "Source Sans Pro";
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+  src: url("./assets/fonts/SourceSansPro-Italic.ttf") format("truetype");
+}
+@font-face {
+  font-family: "Source Sans Pro";
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+  src: url("./assets/fonts/SourceSansPro-Semibold.ttf") format("truetype");
+}
+@font-face {
+  font-family: "Source Sans Pro";
+  font-weight: 600;
+  font-style: italic;
+  font-display: swap;
+  src: url("./assets/fonts/SourceSansPro-SemiboldItalic.ttf") format("truetype");
+}
+@font-face {
+  font-family: "Source Sans Pro";
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+  src: url("./assets/fonts/SourceSansPro-Bold.ttf") format("truetype");
+}
+@font-face {
+  font-family: "Source Sans Pro";
+  font-weight: 700;
+  font-style: italic;
+  font-display: swap;
+  src: url("./assets/fonts/SourceSansPro-BoldItalic.ttf") format("truetype");
+}
+/* 800 (Tailwind's font-extrabold) and 900 both map to Black. */
+@font-face {
+  font-family: "Source Sans Pro";
+  font-weight: 800 900;
+  font-style: normal;
+  font-display: swap;
+  src: url("./assets/fonts/SourceSansPro-Black.ttf") format("truetype");
+}
+
 html,
 body,
 #root {
@@ -9,13 +64,51 @@ body,
 body {
   margin: 0;
   overflow-x: hidden; /* pages never scroll horizontally; wide content scrolls in its own container */
+  background: #fefdfb; /* Phia canvas */
+  color: #4a4a4a;
+  font-family: "Source Sans Pro", "Source Sans 3", "Open Sans", -apple-system, "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-/* Visible keyboard focus for all interactive elements. */
+/* Phia's focus treatment: a soft 3px blue glow rather than a hard outline. */
 :focus-visible {
-  outline: 2px solid #017acc;
-  outline-offset: 2px;
-  border-radius: 2px;
+  outline: 3px solid rgba(1, 122, 204, 0.35);
+  outline-offset: 1px;
+  border-radius: 4px;
+}
+
+/* Hover is a colour shift, never a scale (Phia motion rules). */
+button,
+a,
+select,
+input {
+  transition:
+    background-color 120ms cubic-bezier(0.16, 1, 0.3, 1),
+    border-color 120ms cubic-bezier(0.16, 1, 0.3, 1),
+    color 120ms cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 120ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Chart axis numbers in Inter, like every other figure. */
+.recharts-cartesian-axis-tick text,
+.recharts-text {
+  font-family: Inter, "Source Sans Pro", sans-serif;
+}
+
+/* Clickable table rows and cards lift gently on hover. */
+.phia-row:hover {
+  background: #edf6fc;
+}
+.phia-card-link:hover {
+  box-shadow: 0 4px 10px rgba(74, 74, 74, 0.16);
+  border-color: #c3dbea;
+}
+.phia-nav:hover {
+  background: #f1f1f1;
+}
+.phia-ghost:hover {
+  background: #edf6fc;
 }
 
 /* Screen-reader-only helper. */
@@ -58,4 +151,42 @@ body {
   .shimmer::after {
     animation: none;
   }
+}
+
+/* --- Phia table -------------------------------------------------------------
+   Grey header band with Inter eyebrow labels, hairline row rules, and a pale
+   blue hover on clickable rows. Unlayered, so it sits above Tailwind's
+   utilities on the cells. */
+.phia-table {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+.phia-table thead th {
+  background: #f1f1f1;
+  padding: 10px 12px;
+  border-bottom: 1px solid #e1e1e1;
+  font-family: Inter, "Source Sans Pro", sans-serif;
+  font-size: 11px;
+  line-height: 16px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.phia-table thead th:first-child {
+  border-top-left-radius: 6px;
+}
+.phia-table thead th:last-child {
+  border-top-right-radius: 6px;
+}
+.phia-table tbody td {
+  padding: 12px;
+  border-bottom: 1px solid #e1e1e1;
+  vertical-align: middle;
+}
+.phia-table tbody tr:last-child td {
+  border-bottom: none;
+}
+.phia-table tbody tr.cursor-pointer:hover td {
+  background: #edf6fc;
 }

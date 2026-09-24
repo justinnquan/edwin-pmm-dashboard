@@ -26,6 +26,7 @@ import { useFilters } from "../state/filterStore";
 import { T, num } from "../theme/tokens";
 import { Card, Chip, Select } from "../components/primitives";
 import { ImpactValue, ProductImpactGrid } from "../components/ProductImpact";
+import { Icon } from "../components/Icon";
 
 type SortKey = "name" | "channel" | "launch" | "sends" | "ctr" | "ctor" | "assoc";
 
@@ -67,10 +68,16 @@ function Th({
     <th
       className={`pb-2 ${align === "left" ? "text-left pr-3" : "text-right px-3"} font-bold cursor-pointer select-none`}
       onClick={() => setSort({ key: k, dir: active ? (sort.dir === 1 ? -1 : 1) : numeric ? -1 : 1 })}
-      style={{ color: active ? T.navy : T.muted }}
+      style={{ color: active ? T.blue : T.muted }}
     >
-      {label}
-      <span style={{ opacity: active ? 1 : 0.25 }}>{active ? (sort.dir === 1 ? " ▲" : " ▼") : " ↕"}</span>
+      <span className={`inline-flex items-center gap-1.5 ${align === "left" ? "" : "flex-row-reverse"}`}>
+        {label}
+        <Icon
+          name={active ? (sort.dir === 1 ? "chevron-up" : "chevron-down") : "chevron-down"}
+          size={9}
+          style={{ opacity: active ? 1 : 0.35 }}
+        />
+      </span>
     </th>
   );
 }
@@ -140,21 +147,21 @@ export default function MarketingPerformance() {
   return (
     <div className="flex flex-col gap-6">
       {/* Campaign table */}
-      <Card className="p-5">
+      <Card className="p-6">
         <h2
-          className="text-sm font-extrabold uppercase"
-          style={{ color: T.navy, letterSpacing: "0.07em" }}
+          className="text-lg font-bold"
+          style={{ color: T.ink, lineHeight: "24px" }}
         >
           Campaigns · {fmtRange(from, to)}
         </h2>
-        <p className="mt-1 mb-3 text-xs" style={{ color: T.muted }}>
+        <p className="mt-1 mb-3 text-sm" style={{ color: T.muted }}>
           Channel engagement beside the seasonally-adjusted product change that followed, comparing{" "}
           {windowLabel(win)} before vs. after each send. Click a header to sort, a row to open the campaign.
         </p>
         <div style={{ overflowX: "auto" }}>
-          <table className="w-full" style={{ minWidth: 900 }}>
+          <table className="phia-table w-full" style={{ minWidth: 900 }}>
             <thead>
-              <tr className="text-xs uppercase" style={{ letterSpacing: "0.05em" }}>
+              <tr>
                 <Th label="Campaign" k="name" sort={sort} setSort={setSort} align="left" />
                 <Th label="Channel" k="channel" sort={sort} setSort={setSort} align="left" />
                 <Th label="Launch" k="launch" sort={sort} setSort={setSort} />
@@ -242,8 +249,8 @@ export default function MarketingPerformance() {
       {/* Channel roll-up */}
       <section>
         <h2
-          className="mb-3 text-sm font-extrabold uppercase"
-          style={{ color: T.navy, letterSpacing: "0.07em" }}
+          className="mb-3 text-lg font-bold"
+          style={{ color: T.ink, lineHeight: "24px" }}
         >
           Channel roll-up
         </h2>
@@ -288,7 +295,7 @@ export default function MarketingPerformance() {
                   Assoc. change
                 </span>
                 <span
-                  className="text-lg font-extrabold"
+                  className="text-lg font-bold"
                   style={{ ...num, color: ch.assoc == null ? T.muted : ch.assoc >= 0 ? T.good : T.warn }}
                 >
                   {ch.assoc == null ? "—" : pct(ch.assoc)}
@@ -302,8 +309,8 @@ export default function MarketingPerformance() {
       {/* Comparison */}
       <section>
         <h2
-          className="mb-1 text-sm font-extrabold uppercase"
-          style={{ color: T.navy, letterSpacing: "0.07em" }}
+          className="mb-1 text-lg font-bold"
+          style={{ color: T.ink, lineHeight: "24px" }}
         >
           Compare two campaigns
         </h2>
@@ -316,7 +323,7 @@ export default function MarketingPerformance() {
             { camp: campA, name: aName, set: setAName },
             { camp: campB, name: bName, set: setBName },
           ].map((col, i) => (
-            <Card key={i} className="p-5">
+            <Card key={i} className="p-6">
               <Select
                 label="Campaign"
                 value={col.name}

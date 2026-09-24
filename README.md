@@ -5,7 +5,7 @@ lifecycle marketing activity (Pardot emails, in-app notifications, release notes
 behaviour inside Edwin on one timeline, to answer: *are our campaigns moving teachers from
 awareness to activation to engagement to adoption to retention, and where should we act next?*
 
-**Live:** https://edwin-pmm-dashboard.vercel.app · **Version:** 0.3.0 (shown bottom-left of the app)
+**Live:** https://edwin-pmm-dashboard.vercel.app · **Version:** 0.4.0 (shown bottom-left of the app)
 
 ## Status
 
@@ -137,7 +137,7 @@ api/
   live.ts      Vercel function: password-gated read/publish of the private Live blob
 src/
   lib/         pure date arithmetic and school-year helpers
-  theme/       design tokens (placeholder for Phia)
+  theme/       Phia design tokens (colours, type, shadows)
   data/        THE SWAP POINT — the DataSource contract and its implementations
     source.ts     src() / setSource() — the only door to data
     synthetic.ts  the seeded generator, wrapped (Sample)
@@ -176,7 +176,15 @@ Live locally, run `vercel dev` with the project linked and its environment varia
 campaign-free window where the true effect is zero and fails if the "material" rate exceeds 5%, and
 its output is byte-stable — a diff means the behaviour changed. Run it before and after.
 
-Bump `version` in `package.json` for each release; the rail footer reads it at build time.
+Bump `version` in `package.json` for each release; the sidebar footer reads it at build time.
+
+## Design system
+
+The dashboard is styled with **Phia**, Edwin's design system: the off-white canvas, a light 240px
+sidebar with the edwin logotype and Phia line icons, Source Sans Pro for text and Inter for numbers,
+Phia's blue, green, red-orange and violet, hairline cards with soft shadows, and sentence-case headings.
+Every colour comes from `src/theme/tokens.ts`; the Phia icons are inlined in
+`src/components/Icon.tsx`, and the fonts and logotype are bundled under `src/assets/`.
 
 ## Deployment
 

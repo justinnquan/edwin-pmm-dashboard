@@ -10,7 +10,8 @@
 =========================================================================== */
 import { useMemo, useState } from "react";
 import { T, num } from "../theme/tokens";
-import { Chip } from "./primitives";
+import { Chip, fieldStyle } from "./primitives";
+import { Icon } from "./Icon";
 import { fetchLiveInput } from "../data/live";
 import { buildFileSource, parseCsv, type InputFiles, type Row, type ValidationReport } from "../data/file/load";
 import { DAILY_FACTS, CAMPAIGNS_TABLE, RELEASES_TABLE, type ColumnSpec } from "../data/file/schema";
@@ -256,7 +257,7 @@ export function ManualEditor({ onReport }: { onReport: (r: ValidationReport, inp
   if (!draft) {
     return (
       <div className="flex flex-col gap-3">
-        <p className="text-xs" style={{ color: T.soft, lineHeight: 1.6 }}>
+        <p className="text-sm" style={{ color: T.soft, lineHeight: 1.6 }}>
           Loads the rows Live holds now — weekly usage, campaigns and releases — so you can correct a
           figure, add this week, or remove a campaign without re-exporting anything. Changes go through
           the same validation report, then Preview or Publish.
@@ -275,10 +276,10 @@ export function ManualEditor({ onReport }: { onReport: (r: ValidationReport, inp
               onChange={(e) => setPw(e.target.value)}
               placeholder="Live password"
               aria-label="Live password"
-              className="rounded px-2 py-1 text-sm"
-              style={{ border: `1px solid ${T.border}`, color: T.ink, background: T.surface }}
+              className="px-2.5 text-sm"
+              style={{ ...fieldStyle, height: 34 }}
             />
-            <button type="submit" disabled={!pw} className="rounded px-3 py-1 text-sm font-bold" style={{ color: T.surface, background: pw ? T.blue : T.muted }}>
+            <button type="submit" disabled={!pw} className="rounded-md px-3 py-1 text-sm font-bold" style={{ color: pw ? T.surface : T.faint, background: pw ? T.blue : T.border }}>
               Unlock and load
             </button>
           </form>
@@ -289,8 +290,8 @@ export function ManualEditor({ onReport }: { onReport: (r: ValidationReport, inp
               type="button"
               onClick={() => void load()}
               disabled={status?.busy}
-              className="rounded px-4 py-2 text-sm font-bold"
-              style={{ color: T.surface, background: status?.busy ? T.muted : T.blue }}
+              className="rounded-md px-4 py-2 text-sm font-bold"
+              style={{ color: status?.busy ? T.faint : T.surface, background: status?.busy ? T.border : T.blue }}
             >
               {status?.busy ? "Loading…" : "Load Live data to edit"}
             </button>
@@ -298,8 +299,8 @@ export function ManualEditor({ onReport }: { onReport: (r: ValidationReport, inp
           <button
             type="button"
             onClick={startBlank}
-            className="rounded px-3 py-2 text-sm font-semibold"
-            style={{ color: T.blue, border: `1px solid ${T.blue}55`, background: T.surface }}
+            className="phia-ghost rounded-md px-3 py-2 text-sm font-bold"
+            style={{ color: T.blue, border: `1px solid ${T.blue}`, background: T.surface }}
           >
             Start from a blank table
           </button>
@@ -330,7 +331,7 @@ export function ManualEditor({ onReport }: { onReport: (r: ValidationReport, inp
                   setTab(t);
                   setFilter("");
                 }}
-                className="rounded px-3 py-1 text-sm font-semibold whitespace-nowrap"
+                className="rounded-md px-3 py-1 text-sm font-semibold whitespace-nowrap"
                 style={{
                   background: on ? T.surface : "transparent",
                   color: on ? T.blue : T.muted,
@@ -354,14 +355,14 @@ export function ManualEditor({ onReport }: { onReport: (r: ValidationReport, inp
           onChange={(e) => setFilter(e.target.value)}
           placeholder={`Filter ${TABLE_META[tab].label.toLowerCase()}…`}
           aria-label="Filter rows"
-          className="rounded px-2 py-1 text-sm"
-          style={{ border: `1px solid ${T.border}`, color: T.ink, background: T.surface, minWidth: 220 }}
+          className="px-2.5 text-sm"
+          style={{ ...fieldStyle, minWidth: 220, height: 34 }}
         />
         <button
           type="button"
           onClick={add}
-          className="rounded px-3 py-1 text-sm font-semibold"
-          style={{ color: T.blue, border: `1px solid ${T.blue}55`, background: T.surface }}
+          className="phia-ghost rounded-md px-3 py-1 text-sm font-bold"
+          style={{ color: T.blue, border: `1px solid ${T.blue}`, background: T.surface }}
         >
           + Add {tab === "facts" ? "week" : tab === "campaigns" ? "campaign" : "release"}
         </button>
@@ -380,7 +381,7 @@ export function ManualEditor({ onReport }: { onReport: (r: ValidationReport, inp
                 <th
                   key={c}
                   className="px-2 py-2 text-left text-xs font-bold uppercase whitespace-nowrap"
-                  style={{ position: "sticky", top: 0, background: T.bg, color: T.muted, letterSpacing: "0.04em", borderBottom: `1px solid ${T.border}`, zIndex: 1 }}
+                  style={{ position: "sticky", top: 0, background: T.subtle, color: T.muted, fontFamily: T.fontUI, fontSize: 11, letterSpacing: "0.05em", borderBottom: `1px solid ${T.border}`, zIndex: 1 }}
                 >
                   {LABEL[c] ?? c}
                 </th>
@@ -447,10 +448,10 @@ export function ManualEditor({ onReport }: { onReport: (r: ValidationReport, inp
                       onClick={() => remove(r.key)}
                       aria-label="Remove row"
                       title="Remove row"
-                      className="rounded px-2 py-0.5 text-sm font-bold"
-                      style={{ color: T.warn, border: `1px solid ${T.warn}44`, background: T.surface }}
+                      className="rounded-md inline-flex items-center justify-center"
+                      style={{ color: T.error, border: `1px solid ${T.error}55`, background: T.surface, width: 28, height: 28 }}
                     >
-                      ×
+                      <Icon name="close" size={11} />
                     </button>
                   </td>
                 </tr>
@@ -482,7 +483,7 @@ export function ManualEditor({ onReport }: { onReport: (r: ValidationReport, inp
             <button
               type="button"
               onClick={discard}
-              className="rounded px-3 py-2 text-sm font-semibold"
+              className="rounded-md px-3 py-2 text-sm font-semibold"
               style={{ color: T.soft, border: `1px solid ${T.border}`, background: T.surface }}
             >
               Discard changes
@@ -492,14 +493,14 @@ export function ManualEditor({ onReport }: { onReport: (r: ValidationReport, inp
             type="button"
             onClick={validate}
             disabled={errors > 0}
-            className="rounded px-4 py-2 text-sm font-bold"
-            style={{ color: T.surface, background: errors > 0 ? T.muted : T.blue, cursor: errors > 0 ? "not-allowed" : "pointer" }}
+            className="rounded-md px-4 py-2 text-sm font-bold"
+            style={{ color: errors > 0 ? T.faint : T.surface, background: errors > 0 ? T.border : T.blue, cursor: errors > 0 ? "not-allowed" : "pointer" }}
           >
             Validate changes
           </button>
         </div>
       </div>
-      <p className="text-xs" style={{ color: T.muted, lineHeight: 1.6 }}>
+      <p className="text-sm" style={{ color: T.muted, lineHeight: 1.6 }}>
         Nothing changes on the dashboard until you validate, then choose Preview in this tab or
         Publish as Live below. Changed cells are outlined in blue, new rows tinted green.
       </p>

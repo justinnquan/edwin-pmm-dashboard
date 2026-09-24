@@ -20,7 +20,7 @@ import {
   type SegmentRow,
 } from "../analytics/segments";
 import { useFilters } from "../state/filterStore";
-import { T, num } from "../theme/tokens";
+import { T, num, eyebrow } from "../theme/tokens";
 import { Card, Chip } from "../components/primitives";
 
 /** "rate" is a level (16.0%), "change" is a movement (+16.0%). Rendering a
@@ -83,8 +83,8 @@ export default function Segments() {
   const d = src().dimensions;
   if (d.province.length <= 1 && d.grade.length <= 1 && d.subject.length <= 1) {
     return (
-      <Card className="p-5">
-        <h2 className="text-sm font-extrabold uppercase" style={{ color: T.navy, letterSpacing: "0.07em" }}>
+      <Card className="p-6">
+        <h2 className="text-lg font-bold" style={{ color: T.ink, lineHeight: "24px" }}>
           Segment comparison
         </h2>
         <div className="mt-3">
@@ -100,21 +100,21 @@ export default function Segments() {
   return (
     <div className="flex flex-col gap-6">
       {/* Comparison table */}
-      <Card className="p-5">
+      <Card className="p-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-sm font-extrabold uppercase" style={{ color: T.navy, letterSpacing: "0.07em" }}>
+          <h2 className="text-lg font-bold" style={{ color: T.ink, lineHeight: "24px" }}>
             Segment comparison
           </h2>
-          <div className="flex rounded p-1" style={{ background: T.bg, border: `1px solid ${T.border}` }}>
+          <div className="flex rounded-md p-0.5" style={{ background: T.subtle, border: `1px solid ${T.border}` }}>
             {DIMENSIONS.map((d) => (
               <button
                 key={d.key}
                 onClick={() => setDim(d.key)}
-                className="rounded px-3 py-1 text-sm font-semibold"
+                className="rounded px-3 py-1.5 text-sm font-bold"
                 style={{
                   background: dim === d.key ? T.surface : "transparent",
                   color: dim === d.key ? T.blue : T.muted,
-                  border: dim === d.key ? `1px solid ${T.border}` : "1px solid transparent",
+                  boxShadow: dim === d.key ? T.shadowXs : "none",
                 }}
               >
                 {d.label}
@@ -122,14 +122,14 @@ export default function Segments() {
             ))}
           </div>
         </div>
-        <p className="mt-1 mb-3 text-xs" style={{ color: T.muted }}>
+        <p className="mt-1 mb-3 text-sm" style={{ color: T.muted }}>
           Weekly active, active rate, adoption, retention, and campaign-associated change per segment.
           Cells below {MIN_N} provisioned teachers are gated to an insufficient-data state.
         </p>
         <div style={{ overflowX: "auto" }}>
-          <table className="w-full" style={{ minWidth: 720 }}>
+          <table className="phia-table w-full" style={{ minWidth: 720 }}>
             <thead>
-              <tr className="text-xs uppercase" style={{ color: T.muted, letterSpacing: "0.05em" }}>
+              <tr className="text-xs uppercase" style={eyebrow}>
                 <th className="pb-2 text-left font-bold">Segment</th>
                 <th className="pb-2 px-3 text-right font-bold">Provisioned</th>
                 <th className="pb-2 px-3 text-right font-bold">WAU</th>
@@ -180,11 +180,11 @@ export default function Segments() {
       </Card>
 
       {/* Opportunity ranking */}
-      <Card className="p-5">
-        <h2 className="text-sm font-extrabold uppercase" style={{ color: T.navy, letterSpacing: "0.07em" }}>
+      <Card className="p-6">
+        <h2 className="text-lg font-bold" style={{ color: T.ink, lineHeight: "24px" }}>
           Where is the opportunity
         </h2>
-        <p className="mt-1 mb-4 text-xs" style={{ color: T.muted }}>
+        <p className="mt-1 mb-4 text-sm" style={{ color: T.muted }}>
           Province × grade cells ranked by teachers below the {pctAbs(MONTHLY_TARGET)} monthly-active
           target — the largest gaps, sized by population. Min-N gated.
         </p>
@@ -199,17 +199,17 @@ export default function Segments() {
                 <span className="text-sm shrink-0" style={{ width: 220, color: T.ink }}>
                   {o.key}
                 </span>
-                <div className="flex-1 rounded" style={{ height: 20, background: T.bg, border: `1px solid ${T.border}` }}>
+                <div className="flex-1 rounded-full overflow-hidden" style={{ height: 22, background: T.subtle }}>
                   <div
-                    className="h-full rounded-l flex items-center justify-end pr-2"
+                    className="h-full rounded-full flex items-center justify-end pr-2.5"
                     style={{ width: `${Math.max(4, (o.size / maxOpp) * 100)}%`, background: T.warn }}
                   >
-                    <span className="text-xs font-bold" style={{ color: "#fff", ...num }}>
+                    <span className="text-xs font-bold" style={{ color: T.surface, ...num }}>
                       ~{int(o.size)}
                     </span>
                   </div>
                 </div>
-                <span className="text-xs shrink-0 text-right" style={{ width: 130, color: T.muted, ...num }}>
+                <span className="text-xs shrink-0 text-right" style={{ width: 180, color: T.muted, ...num }}>
                   {pctAbs(o.activeRate)} active · {pctAbs(o.gapToTarget)} gap
                 </span>
               </div>
@@ -223,9 +223,9 @@ export default function Segments() {
 
       {/* Account / board operating view — data-gated, PMM only */}
       {isPMM && (
-        <Card className="p-5" style={{ background: T.bg }}>
+        <Card className="p-6" style={{ background: T.bg }}>
           <div className="flex items-center gap-2">
-            <h2 className="text-sm font-extrabold uppercase" style={{ color: T.navy, letterSpacing: "0.07em" }}>
+            <h2 className="text-lg font-bold" style={{ color: T.ink, lineHeight: "24px" }}>
               Account / board operating view
             </h2>
             <Chip tone="muted">PMM only</Chip>

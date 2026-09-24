@@ -5,7 +5,7 @@
 =========================================================================== */
 import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { T, num } from "../theme/tokens";
+import { T, num, eyebrow } from "../theme/tokens";
 import { src } from "../data/source";
 import { addDays, fmtRange, fromIso } from "../lib/dates";
 import { SERIES_LABEL, LAST_YEAR_LABEL, YOY_LAG } from "../analytics/constants";
@@ -21,6 +21,7 @@ import { EmptyState } from "../components/states";
 import { KpiCard } from "../components/KpiCard";
 import { KPI_INFO } from "../components/kpiInfo";
 import { Provenance } from "../components/Provenance";
+import { MarkerTriangle } from "../components/Icon";
 import { InsightStrip } from "../components/InsightStrip";
 import { TrendChart } from "../components/TrendChart";
 import { ImpactRow } from "../components/DrillPanel";
@@ -199,8 +200,8 @@ export default function ExecutiveOverview() {
       {/* What changed */}
       <section>
         <h2
-          className="mb-3 text-sm font-extrabold uppercase"
-          style={{ color: T.navy, letterSpacing: "0.07em" }}
+          className="mb-3 text-lg font-bold"
+          style={{ color: T.ink, lineHeight: "24px" }}
         >
           What changed
         </h2>
@@ -216,50 +217,50 @@ export default function ExecutiveOverview() {
 
       {/* Marketing impact + trend */}
       <section className="grid gap-4" style={{ gridTemplateColumns: "minmax(0,1fr)" }}>
-        <Card className="p-5">
+        <Card className="p-6">
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div>
               <h2
-                className="text-sm font-extrabold uppercase"
-                style={{ color: T.navy, letterSpacing: "0.07em" }}
+                className="text-lg font-bold"
+                style={{ color: T.ink, lineHeight: "24px" }}
               >
                 Marketing impact · {fmtRange(from, to)}
               </h2>
-              <p className="mt-1 text-xs" style={{ color: T.muted }}>
+              <p className="mt-1 text-sm" style={{ color: T.muted }}>
                 What marketing did, and what happened in Edwin afterward.
               </p>
             </div>
-            <div className="flex flex-wrap gap-6">
+            <div className="flex flex-wrap gap-8">
               <div>
-                <div className="text-xs" style={{ color: T.muted }}>
+                <div style={eyebrow}>
                   Campaigns launched
                 </div>
-                <div className="text-2xl font-extrabold" style={{ ...num, color: T.ink }}>
+                <div className="mt-1 text-2xl font-bold" style={{ ...num, color: T.ink }}>
                   {model.recent.length}
                 </div>
               </div>
               <div>
-                <div className="text-xs" style={{ color: T.muted }}>
+                <div style={eyebrow}>
                   Teachers reached
                 </div>
-                <div className="text-2xl font-extrabold" style={{ ...num, color: T.ink }}>
+                <div className="mt-1 text-2xl font-bold" style={{ ...num, color: T.ink }}>
                   {int(model.reached)}
                 </div>
               </div>
               <div>
-                <div className="text-xs" style={{ color: T.muted }}>
+                <div style={eyebrow}>
                   Resource engagement
                 </div>
-                <div className="text-2xl font-extrabold" style={{ ...num, color: T.soft }}>
+                <div className="mt-1 text-2xl font-bold" style={{ ...num, color: T.soft }}>
                   {model.resCh ? pct(model.resCh.adjusted) : "—"}
                 </div>
               </div>
             </div>
           </div>
 
-          <div className="mt-5 flex flex-wrap items-center gap-4 text-xs" style={{ color: T.muted }}>
+          <div className="mt-6 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm" style={{ color: T.soft }}>
             <span className="flex items-center gap-2">
-              <span style={{ width: 18, height: 3, background: T.blue, display: "inline-block" }} />
+              <span style={{ width: 18, height: 3, borderRadius: 2, background: T.blue, display: "inline-block" }} />
               {SERIES_LABEL[metric] ?? metric}
             </span>
             <span className="flex items-center gap-2">
@@ -275,12 +276,12 @@ export default function ExecutiveOverview() {
             </span>
             {model.logins && (
               <span className="flex items-center gap-2">
-                <span style={{ width: 18, height: 3, background: T.logins, display: "inline-block" }} />
+                <span style={{ width: 18, height: 3, borderRadius: 2, background: T.logins, display: "inline-block" }} />
                 New logged-in teachers (right axis)
               </span>
             )}
             <span className="flex items-center gap-2">
-              <span style={{ color: T.warn, fontSize: 14 }}>▲</span> Campaign launch — click to open
+              <MarkerTriangle color={T.warn} /> Campaign launch — click to open
             </span>
           </div>
 
@@ -304,7 +305,7 @@ export default function ExecutiveOverview() {
             />
           </div>
 
-          <p className="mt-2 text-xs" style={{ color: T.muted, lineHeight: 1.6 }}>
+          <p className="mt-3 text-sm" style={{ color: T.muted, lineHeight: 1.6 }}>
             The dotted line is the same week last school year; where both lines exist, the shaded
             band is the gap between them. New logged-in teachers are teachers logging in for the
             first time that week. Proximity of a marker to a change does not establish that the
@@ -315,14 +316,14 @@ export default function ExecutiveOverview() {
 
       {/* PMM-only progressive disclosure */}
       {isPMM && (
-        <Card className="p-5">
+        <Card className="p-6">
           <h2
-            className="text-sm font-extrabold uppercase"
-            style={{ color: T.navy, letterSpacing: "0.07em" }}
+            className="text-lg font-bold"
+            style={{ color: T.ink, lineHeight: "24px" }}
           >
             Campaign contribution · {fmtRange(from, to)}
           </h2>
-          <p className="mt-1 mb-2 text-xs" style={{ color: T.muted }}>
+          <p className="mt-1 mb-4 text-sm" style={{ color: T.muted }}>
             Channel engagement beside the product behaviour that followed it. Select a row to open the
             campaign.
           </p>
@@ -331,9 +332,9 @@ export default function ExecutiveOverview() {
               No campaigns sent in these dates.
             </div>
           ) : (
-            <table className="w-full">
+            <table className="phia-table w-full">
               <thead>
-                <tr className="text-xs uppercase" style={{ color: T.muted, letterSpacing: "0.05em" }}>
+                <tr style={{ color: T.muted }}>
                   <th className="pb-2 text-left font-bold">Campaign</th>
                   <th className="pb-2 px-3 text-right font-bold">Sends</th>
                   <th className="pb-2 px-3 text-right font-bold">CTR</th>

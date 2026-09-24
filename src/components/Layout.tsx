@@ -28,6 +28,10 @@ import { WindowToggle } from "./WindowToggle";
 import { availableYears, yearWindow } from "../analytics/period";
 import { SourceToggle } from "./SourceToggle";
 import { LiveGate } from "./LiveGate";
+import { EdwinLogo } from "./EdwinLogo";
+
+/** One entry in the methodology strip: a bold term and its value. */
+const term = { color: T.ink, fontWeight: 700 } as const;
 
 export function Layout() {
   const { pathname } = useLocation();
@@ -58,29 +62,63 @@ export function Layout() {
   return (
     <div
       className="flex"
-      style={{ fontFamily: T.font, background: T.bg, minHeight: "100%", color: T.ink }}
+      style={{ fontFamily: T.font, background: T.bg, minHeight: "100%", color: T.soft }}
     >
       <Rail />
 
       <main className="flex-1 min-w-0">
-        {/* Top bar */}
-        <header
-          className="px-4 sm:px-6 py-4 flex flex-wrap items-end justify-between gap-4"
+        {/* Mobile brand + nav (rail is hidden below lg) */}
+        <div
+          className="lg:hidden"
           style={{ background: T.surface, borderBottom: `1px solid ${T.border}` }}
         >
-          <div>
-            <h1 className="text-lg sm:text-xl font-extrabold" style={{ color: T.ink }}>
+          <div className="px-4 pt-3 pb-1 flex items-center gap-2">
+            <EdwinLogo height={20} />
+            <span className="text-sm font-semibold" style={{ color: T.muted }}>
+              Product Marketing
+            </span>
+          </div>
+          <nav className="flex items-center gap-1 px-4 py-2 overflow-x-auto" aria-label="Sections">
+            <SourceToggle compact />
+            {NAV.map((n) => (
+              <NavLink
+                key={n.path}
+                to={n.path}
+                end={n.path === "/"}
+                className="whitespace-nowrap rounded-md px-3 py-1 text-xs font-bold"
+                style={({ isActive }) => ({
+                  color: isActive ? T.blue : T.soft,
+                  background: isActive ? T.blue100 : "transparent",
+                  textDecoration: "none",
+                })}
+              >
+                {n.label}
+              </NavLink>
+            ))}
+          </nav>
+        </div>
+
+        {/* Top bar */}
+        <header
+          className="px-4 sm:px-6 lg:px-10 pt-6 lg:pt-8 pb-5 flex flex-wrap items-end justify-between gap-4"
+          style={{ background: T.bg, borderBottom: `1px solid ${T.border}` }}
+        >
+          <div className="min-w-0">
+            <h1
+              className="text-2xl lg:text-4xl font-bold"
+              style={{ color: T.ink, letterSpacing: "-0.01em", lineHeight: 1.15, margin: 0 }}
+            >
               {meta.title}
             </h1>
-            <p className="mt-1 text-sm" style={{ color: T.soft }}>
+            <p className="mt-1.5 text-sm lg:text-base" style={{ color: T.muted }}>
               {meta.subtitle}
             </p>
           </div>
           <div
-            className="flex rounded p-1"
+            className="flex rounded-md p-0.5"
             role="tablist"
             aria-label="Audience view"
-            style={{ background: T.bg, border: `1px solid ${T.border}` }}
+            style={{ background: T.subtle, border: `1px solid ${T.border}` }}
           >
             {(["Leadership", "Product Marketing"] as const).map((v) => (
               <button
@@ -88,11 +126,11 @@ export function Layout() {
                 role="tab"
                 aria-selected={view === v}
                 onClick={() => update({ view: v })}
-                className="rounded px-3 py-1 text-sm font-semibold"
+                className="rounded-md px-3 py-1.5 text-sm font-bold"
                 style={{
                   background: view === v ? T.surface : "transparent",
                   color: view === v ? T.blue : T.muted,
-                  border: view === v ? `1px solid ${T.border}` : "1px solid transparent",
+                  boxShadow: view === v ? T.shadowXs : "none",
                 }}
               >
                 {v}
@@ -101,35 +139,11 @@ export function Layout() {
           </div>
         </header>
 
-        {/* Mobile nav (rail is hidden below lg) */}
-        <nav
-          className="lg:hidden flex gap-1 px-4 py-2 overflow-x-auto"
-          aria-label="Sections"
-          style={{ background: T.railTint }}
-        >
-          <SourceToggle compact />
-          {NAV.map((n) => (
-            <NavLink
-              key={n.path}
-              to={n.path}
-              end={n.path === "/"}
-              className="whitespace-nowrap rounded px-3 py-1 text-xs font-semibold"
-              style={({ isActive }) => ({
-                color: isActive ? "#fff" : "rgba(255,255,255,.6)",
-                background: isActive ? "rgba(255,255,255,.12)" : "transparent",
-                textDecoration: "none",
-              })}
-            >
-              {n.label}
-            </NavLink>
-          ))}
-        </nav>
-
         {!liveWaiting && (
           <>
             {/* Global filters */}
             <div
-              className="px-4 sm:px-6 py-3 flex flex-wrap items-end gap-3 sm:gap-4"
+              className="px-4 sm:px-6 lg:px-10 py-3 flex flex-wrap items-end gap-3 sm:gap-5"
               style={{ background: T.surface, borderBottom: `1px solid ${T.border}` }}
             >
               <Select
@@ -186,22 +200,22 @@ export function Layout() {
 
             {/* Methodology + freshness strip */}
             <div
-              className="px-4 sm:px-6 py-2 flex flex-wrap items-center gap-x-5 gap-y-1 text-xs"
-              style={{ background: "#F1F6FB", borderBottom: `1px solid ${T.border}`, color: T.soft }}
+              className="px-4 sm:px-6 lg:px-10 py-2.5 flex flex-wrap items-center gap-x-5 gap-y-1.5 text-xs"
+              style={{ background: T.blue100, borderBottom: `1px solid ${T.blue200}`, color: T.soft }}
             >
               <span>
-                <b style={{ color: T.navy }}>Data as of</b> {fmtShort(iso(source.asOf))} ·{" "}
+                <b style={term}>Data as of</b> {fmtShort(iso(source.asOf))} ·{" "}
                 {source.label}
               </span>
               <span>
-                <b style={{ color: T.navy }}>Dotted line</b> same week last school year, ±{BASELINE_SMOOTH}-day smoothed
+                <b style={term}>Dotted line</b> same week last school year, ±{BASELINE_SMOOTH}-day smoothed
                 {source.coverage.seatsAreStock ? ", rescaled for seat growth" : ""}
               </span>
               <span>
-                <b style={{ color: T.navy }}>Minimum sample</b> {MIN_N} exposed teachers
+                <b style={term}>Minimum sample</b> {MIN_N} exposed teachers
               </span>
               <span>
-                <b style={{ color: T.navy }}>Materiality</b> {pctAbs(MATERIALITY)} floor or {CONFIDENCE_Z}× its own error, whichever is higher
+                <b style={term}>Materiality</b> {pctAbs(MATERIALITY)} floor or {CONFIDENCE_Z}× its own error, whichever is higher
               </span>
               {!hasYoY && (
                 <span style={{ color: T.warn, fontWeight: 700 }}>
@@ -219,24 +233,24 @@ export function Layout() {
               )}
               {source.coverage.seatsAreStock && !source.coverage.perCellSeats && (
                 <span title="Provisioned seats are allocated to segments by population weight rather than measured per segment. Segment-level rates are therefore modelled.">
-                  <b style={{ color: T.navy }}>Denominator</b> modelled
+                  <b style={term}>Denominator</b> modelled
                 </span>
               )}
               {source.coverage.grain === "weekly" && (
                 <span title="Rows arrive weekly and are expanded across their seven days, so day-of-week effects cannot be recovered and no uncertainty band is estimated.">
-                  <b style={{ color: T.navy }}>Grain</b> weekly
+                  <b style={term}>Grain</b> weekly
                 </span>
               )}
               {unsegmented && (
                 <span title="This source carries no province, grade or subject breakdown, so every figure is platform-wide.">
-                  <b style={{ color: T.navy }}>Scope</b> platform-wide
+                  <b style={term}>Scope</b> platform-wide
                 </span>
               )}
               <span style={{ color: T.warn, fontWeight: 700 }}>Association, not causation</span>
               <button
                 onClick={() => setMethodOpen(true)}
-                className="rounded px-2 py-0.5 font-semibold"
-                style={{ color: T.blue, border: `1px solid ${T.blue}55`, background: T.surface }}
+                className="phia-ghost rounded-md px-2.5 py-0.5 font-bold"
+                style={{ color: T.blue, border: `1px solid ${T.blue}`, background: T.surface }}
               >
                 Methodology
               </button>
@@ -244,7 +258,7 @@ export function Layout() {
           </>
         )}
 
-        <div className="p-4 sm:p-6">
+        <div className="px-4 sm:px-6 lg:px-10 py-6 pb-16">
           {/* Keying on `version` remounts every page when the data source is
               swapped. Remounting discards each page's useMemo cache wholesale,
               which is more reliable than adding `version` to a dozen dependency

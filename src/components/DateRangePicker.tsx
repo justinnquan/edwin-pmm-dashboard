@@ -9,7 +9,8 @@
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { DayPicker, type DateRange } from "react-day-picker";
 import "react-day-picker/style.css";
-import { T } from "../theme/tokens";
+import { T, eyebrow } from "../theme/tokens";
+import { Icon } from "./Icon";
 import { fmtRange, fromIso, iso } from "../lib/dates";
 import type { Preset } from "../state/filterStore";
 
@@ -105,7 +106,7 @@ export function DateRangePicker({
 
   return (
     <div className="relative flex flex-col gap-1" ref={box}>
-      <span className="text-xs font-bold uppercase" style={{ color: T.muted, letterSpacing: "0.05em" }}>
+      <span className="text-xs font-bold uppercase" style={eyebrow}>
         Dates
       </span>
       <button
@@ -113,12 +114,17 @@ export function DateRangePicker({
         onClick={() => setOpen((o) => !o)}
         aria-haspopup="dialog"
         aria-expanded={open}
-        className="rounded px-2 py-1 text-sm text-left flex items-center gap-2"
-        style={{ border: `1px solid ${open ? T.blue : T.border}`, background: T.surface, color: T.ink, minWidth: 200 }}
+        className="rounded px-2.5 text-sm text-left flex items-center gap-2"
+        style={{
+          border: `1px solid ${open ? T.blue : T.faint}`,
+          background: T.surface,
+          color: T.ink,
+          minWidth: 200,
+          height: 34,
+          boxShadow: open ? "0 0 0 3px rgba(1,122,204,0.25)" : "none",
+        }}
       >
-        <span aria-hidden style={{ color: T.muted }}>
-          ▦
-        </span>
+        <Icon name="calendar" size={16} style={{ color: T.blue }} />
         {fmtRange(from, to)}
       </button>
 
@@ -133,7 +139,7 @@ export function DateRangePicker({
             left: shift,
             background: T.surface,
             border: `1px solid ${T.border}`,
-            boxShadow: "0 10px 30px rgba(0,0,0,.12)",
+            boxShadow: T.shadowLg,
             width: "max-content",
             maxWidth: "calc(100vw - 32px)",
           }}
@@ -147,9 +153,9 @@ export function DateRangePicker({
                   onApply(p.key);
                   setOpen(false);
                 }}
-                className="rounded px-3 py-1.5 text-sm font-semibold text-left whitespace-nowrap"
+                className={"rounded-md px-3 py-1.5 text-sm font-bold text-left whitespace-nowrap" + (preset === p.key ? "" : " phia-ghost")}
                 style={{
-                  background: preset === p.key ? `${T.blue}14` : "transparent",
+                  background: preset === p.key ? T.blue100 : "transparent",
                   color: preset === p.key ? T.blue : T.soft,
                 }}
               >
@@ -196,8 +202,8 @@ export function DateRangePicker({
                 <button
                   type="button"
                   onClick={() => setOpen(false)}
-                  className="rounded px-3 py-1 text-sm font-semibold"
-                  style={{ color: T.soft, border: `1px solid ${T.border}`, background: T.surface }}
+                  className="phia-ghost rounded-md px-3 py-1 text-sm font-bold"
+                  style={{ color: T.blue, border: `1px solid ${T.blue}`, background: T.surface }}
                 >
                   Cancel
                 </button>
@@ -209,8 +215,12 @@ export function DateRangePicker({
                     onApply("custom", { from: iso(draft.from), to: iso(draft.to) });
                     setOpen(false);
                   }}
-                  className="rounded px-3 py-1 text-sm font-bold"
-                  style={{ color: T.surface, background: canApply ? T.blue : T.muted }}
+                  className="rounded-md px-3 py-1 text-sm font-bold"
+                  style={{
+                    color: canApply ? T.surface : T.faint,
+                    background: canApply ? T.blue : T.border,
+                    cursor: canApply ? "pointer" : "not-allowed",
+                  }}
                 >
                   Apply
                 </button>

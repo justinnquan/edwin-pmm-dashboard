@@ -52,7 +52,7 @@ export function MethodologyModal({ open, onClose }: { open: boolean; onClose: ()
   return (
     <div
       className="fixed inset-0 z-[100] flex items-start justify-center p-4 sm:p-8"
-      style={{ background: "rgba(10,20,40,.45)", overflowY: "auto" }}
+      style={{ background: "rgba(0,0,0,.25)", overflowY: "auto" }}
       onClick={onClose}
     >
       <div
@@ -60,16 +60,16 @@ export function MethodologyModal({ open, onClose }: { open: boolean; onClose: ()
         role="dialog"
         aria-modal="true"
         aria-labelledby="methodology-title"
-        className="rounded-lg w-full"
-        style={{ background: T.surface, maxWidth: 640, boxShadow: "0 20px 60px rgba(0,0,0,.3)" }}
+        className="rounded-xl w-full"
+        style={{ background: T.surface, maxWidth: 680, boxShadow: T.shadowLg }}
         onClick={(e) => e.stopPropagation()}
       >
         <div
-          className="flex items-start justify-between gap-4 px-6 py-4"
+          className="flex items-start justify-between gap-4 px-6 py-5"
           style={{ borderBottom: `1px solid ${T.border}` }}
         >
           <div>
-            <h2 id="methodology-title" className="text-lg font-extrabold" style={{ color: T.ink }}>
+            <h2 id="methodology-title" className="text-2xl font-bold" style={{ color: T.ink, margin: 0 }}>
               How to read this dashboard
             </h2>
             <p className="mt-1 text-sm" style={{ color: T.soft }}>
@@ -80,8 +80,8 @@ export function MethodologyModal({ open, onClose }: { open: boolean; onClose: ()
             ref={closeRef}
             onClick={onClose}
             aria-label="Close methodology"
-            className="rounded px-2 py-1 text-sm font-semibold shrink-0"
-            style={{ color: T.soft, border: `1px solid ${T.border}` }}
+            className="phia-ghost rounded-md px-2 py-1 text-sm font-bold shrink-0"
+            style={{ color: T.blue, border: `1px solid ${T.blue}`, background: T.surface }}
           >
             Close
           </button>
@@ -89,24 +89,24 @@ export function MethodologyModal({ open, onClose }: { open: boolean; onClose: ()
 
         <div className="px-6 py-5 flex flex-col gap-5">
           <section>
-            <h3 className="text-xs font-extrabold uppercase" style={{ color: T.navy, letterSpacing: "0.06em" }}>
+            <h3 className="text-base font-bold" style={{ color: T.ink }}>
               Attribution methods
             </h3>
             <div className="mt-3 flex flex-col gap-3">
               {METHODS.map((m) => (
-                <div key={m.name} className="rounded p-3" style={{ background: T.bg, border: `1px solid ${T.border}` }}>
+                <div key={m.name} className="rounded-lg p-4" style={{ background: T.bg, border: `1px solid ${T.border}` }}>
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-sm font-bold" style={{ color: T.ink }}>
                       {m.name}
                     </span>
                     <span
-                      className="rounded px-2 py-0.5 text-xs font-semibold shrink-0"
-                      style={{ color: T.blue, background: T.blue + "14" }}
+                      className="rounded px-2 py-0.5 font-bold shrink-0"
+                      style={{ color: T.blue, background: T.blue100, fontFamily: T.fontUI, fontSize: 11 }}
                     >
                       {m.label}
                     </span>
                   </div>
-                  <p className="mt-1 text-xs" style={{ color: T.soft, lineHeight: 1.6 }}>
+                  <p className="mt-1 text-sm" style={{ color: T.soft, lineHeight: 1.6 }}>
                     {m.body}
                   </p>
                 </div>
@@ -115,7 +115,7 @@ export function MethodologyModal({ open, onClose }: { open: boolean; onClose: ()
           </section>
 
           <section>
-            <h3 className="text-xs font-extrabold uppercase" style={{ color: T.navy, letterSpacing: "0.06em" }}>
+            <h3 className="text-base font-bold" style={{ color: T.ink }}>
               Guardrails
             </h3>
             <ul className="mt-2 text-sm flex flex-col gap-1.5" style={{ color: T.soft, lineHeight: 1.5 }}>

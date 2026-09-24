@@ -34,17 +34,16 @@ export function InfoTip({ label, info, side = "left" }: { label: string; info: K
           width: 15,
           height: 15,
           borderRadius: "50%",
-          border: `1px solid ${T.border}`,
-          background: T.surface,
-          color: T.muted,
+          border: `1px solid ${open ? T.blue : T.faint}`,
+          background: open ? T.blue : T.surface,
+          color: open ? T.surface : T.muted,
           fontSize: 10,
-          fontWeight: 800,
-          fontStyle: "italic",
+          fontWeight: 700,
           cursor: "help",
           display: "inline-flex",
           alignItems: "center",
           justifyContent: "center",
-          fontFamily: "Georgia, serif",
+          fontFamily: T.fontUI,
         }}
       >
         i
@@ -53,14 +52,16 @@ export function InfoTip({ label, info, side = "left" }: { label: string; info: K
         <span
           id={id}
           role="tooltip"
-          className="absolute z-50 rounded-md p-3 text-xs"
+          className="absolute z-50 rounded-lg p-3 text-xs"
           style={{
             top: "calc(100% + 6px)",
             ...anchor,
-            width: 260,
+            width: 280,
             background: T.surface,
             border: `1px solid ${T.border}`,
-            boxShadow: "0 6px 20px rgba(0,0,0,.12)",
+            boxShadow: T.shadowMd,
+            fontFamily: T.font,
+            fontSize: 13,
             lineHeight: 1.5,
             fontStyle: "normal",
             fontWeight: 400,
@@ -77,7 +78,7 @@ export function InfoTip({ label, info, side = "left" }: { label: string; info: K
             ] as const
           ).map(([k, v], i) => (
             <span key={k} className="block" style={{ marginTop: i ? 8 : 0 }}>
-              <b style={{ color: k === "Limitation" ? T.warn : T.navy }}>{k}. </b>
+              <b style={{ color: k === "Limitation" ? T.warn : T.ink }}>{k}. </b>
               <span style={{ color: T.soft }}>{v}</span>
             </span>
           ))}

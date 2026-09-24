@@ -23,7 +23,7 @@ import { SERIES_LABEL, LAST_YEAR_LABEL } from "../analytics/constants";
 import { int, pct } from "../analytics/format";
 import { cellFilter, seriesFor } from "../analytics/kpis";
 import { useFilters } from "../state/filterStore";
-import { T, num } from "../theme/tokens";
+import { T, num, eyebrow } from "../theme/tokens";
 import { Card } from "../components/primitives";
 import { typeColor, RELEASE_COLOR, CampaignTypeLegend } from "../components/campaignStyle";
 
@@ -56,8 +56,8 @@ function LaneTooltip({ active, payload, label }: any) {
   const gap = v?.value != null && b?.value ? v.value / b.value - 1 : null;
   return (
     <div
-      className="rounded-md p-2 text-xs"
-      style={{ background: T.surface, border: `1px solid ${T.border}`, boxShadow: "0 4px 14px rgba(0,0,0,.09)" }}
+      className="rounded-lg p-2 text-xs"
+      style={{ background: T.surface, border: `1px solid ${T.border}`, boxShadow: T.shadowMd }}
     >
       <div className="font-bold" style={{ color: T.ink }}>
         {fmtShort(label)}
@@ -94,7 +94,7 @@ function MetricLane({
     <div className="relative" style={{ height: showX ? 156 : 138 }}>
       <div
         className="absolute z-10 text-xs font-bold uppercase"
-        style={{ left: LEFT + 6, top: 4, color: T.soft, letterSpacing: "0.04em" }}
+        style={{ ...eyebrow, left: LEFT + 6, top: 4, color: T.soft }}
       >
         {SERIES_LABEL[metric]}
       </div>
@@ -178,10 +178,10 @@ export default function ActivityTimeline() {
 
   return (
     <div className="flex flex-col gap-6">
-      <Card className="p-5">
+      <Card className="p-6">
         {/* metric toggles */}
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs font-bold uppercase mr-1" style={{ color: T.muted, letterSpacing: "0.05em" }}>
+          <span className="text-xs font-bold uppercase mr-1" style={eyebrow}>
             Metric lanes
           </span>
           {timelineMetrics().map((m) => {
@@ -190,11 +190,12 @@ export default function ActivityTimeline() {
               <button
                 key={m}
                 onClick={() => toggle(m)}
-                className="rounded px-3 py-1 text-xs font-semibold"
+                className="rounded-full px-3 py-1 text-xs font-bold"
                 style={{
-                  background: on ? T.blue : T.surface,
-                  color: on ? "#fff" : T.soft,
+                  background: on ? T.blue : T.subtle,
+                  color: on ? T.surface : T.soft,
                   border: `1px solid ${on ? T.blue : T.border}`,
+                  fontFamily: T.fontUI,
                 }}
               >
                 {SERIES_LABEL[m]}
@@ -205,7 +206,7 @@ export default function ActivityTimeline() {
 
         {/* activity lane */}
         <div className="mt-5">
-          <div className="text-xs font-bold uppercase" style={{ color: T.soft, letterSpacing: "0.04em", marginLeft: LEFT + 6 }}>
+          <div className="text-xs font-bold uppercase" style={{ ...eyebrow, marginLeft: LEFT + 6 }}>
             Campaigns &amp; releases
           </div>
           <div className="relative mt-1" style={{ height: 46 }}>
@@ -285,7 +286,7 @@ export default function ActivityTimeline() {
         </div>
       </Card>
 
-      <p className="text-xs" style={{ color: T.muted, lineHeight: 1.6 }}>
+      <p className="text-sm" style={{ color: T.muted, lineHeight: 1.6 }}>
         Each lane shows the metric (solid) against the same week last school year (dotted). Vertical
         navy lines and diamonds mark product releases. Click a triangle to open that campaign's impact
         detail. School year, dates and segment come from the global filters.

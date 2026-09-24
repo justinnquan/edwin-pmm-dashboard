@@ -16,11 +16,11 @@ export function EmptyState({
 }) {
   return (
     <Card className="p-6">
-      <div className="text-base font-bold" style={{ color: T.ink }}>
+      <div className="text-lg font-bold" style={{ color: T.ink }}>
         {title}
       </div>
       {children && (
-        <div className="mt-1 text-sm" style={{ color: T.muted, lineHeight: 1.6, maxWidth: 560 }}>
+        <div className="mt-1 text-base" style={{ color: T.soft, lineHeight: 1.6, maxWidth: 600 }}>
           {children}
         </div>
       )}
@@ -38,13 +38,13 @@ export function PageLoading() {
           <div
             key={i}
             className="rounded-lg shimmer"
-            style={{ height: 116, background: T.surface, border: `1px solid ${T.border}` }}
+            style={{ height: 116, background: T.surface, border: `1px solid ${T.border}`, boxShadow: T.shadowSm }}
           />
         ))}
       </div>
       <div
         className="rounded-lg shimmer"
-        style={{ height: 320, background: T.surface, border: `1px solid ${T.border}` }}
+        style={{ height: 320, background: T.surface, border: `1px solid ${T.border}`, boxShadow: T.shadowSm }}
       />
     </div>
   );
@@ -56,13 +56,13 @@ export function PageLoading() {
 export function Unavailable({ title, detail }: { title: string; detail: string }) {
   return (
     <div
-      className="rounded p-4"
-      style={{ border: `1px dashed ${T.border}`, background: T.bg, lineHeight: 1.6 }}
+      className="rounded-md p-4"
+      style={{ border: `1px dashed ${T.faint}`, background: T.subtle, lineHeight: 1.6 }}
     >
       <div className="text-sm font-semibold" style={{ color: T.soft }}>
         {title}
       </div>
-      <div className="mt-1 text-xs" style={{ color: T.muted }}>
+      <div className="mt-1 text-sm" style={{ color: T.muted }}>
         {detail}
       </div>
     </div>

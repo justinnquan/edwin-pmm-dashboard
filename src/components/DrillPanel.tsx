@@ -1,7 +1,7 @@
 /* ===========================================================================
    /components — CAMPAIGN DRILL (impact row + detail panel)
 =========================================================================== */
-import { T, num } from "../theme/tokens";
+import { T, num, eyebrow } from "../theme/tokens";
 import { fmtShort } from "../lib/dates";
 import { MIN_N, METRIC_LABEL } from "../analytics/constants";
 import { pct, int } from "../analytics/format";
@@ -88,11 +88,11 @@ export function DrillPanel({
   if (!campaign) return null;
   const metrics: SummableMetric[] = ["wau", "resourceOpens", "assignmentsCreated"];
   return (
-    <Card className="p-5" style={{ borderColor: T.blue }}>
+    <Card className="p-6" style={{ borderColor: T.blue }}>
       <div className="flex items-start justify-between gap-4">
         <div>
           <Chip tone="blue">{campaign.type}</Chip>
-          <div className="mt-2 text-lg font-extrabold" style={{ color: T.ink }}>
+          <div className="mt-2 text-lg font-bold" style={{ color: T.ink }}>
             {campaign.name}
           </div>
           <div className="text-xs" style={{ color: T.muted }}>
@@ -101,8 +101,8 @@ export function DrillPanel({
         </div>
         <button
           onClick={onClose}
-          className="rounded px-2 py-1 text-xs font-semibold"
-          style={{ color: T.soft, border: `1px solid ${T.border}` }}
+          className="phia-ghost rounded-md px-2 py-1 text-xs font-bold"
+          style={{ color: T.blue, border: `1px solid ${T.blue}`, background: T.surface }}
         >
           Close
         </button>
@@ -117,19 +117,19 @@ export function DrillPanel({
           return (
             <div
               key={m}
-              className="rounded p-3"
+              className="rounded-lg p-4"
               style={{ background: T.bg, border: `1px solid ${T.border}` }}
             >
               <div
                 className="text-xs font-bold uppercase"
-                style={{ color: T.muted, letterSpacing: "0.05em" }}
+                style={eyebrow}
               >
                 {METRIC_LABEL[m as keyof typeof METRIC_LABEL] ?? m}
               </div>
               {r.state === "ok" ? (
                 <>
                   <div
-                    className="mt-2 text-2xl font-extrabold"
+                    className="mt-2 text-2xl font-bold"
                     style={{
                       ...num,
                       color: r.material ? (r.adjusted > 0 ? T.good : T.warn) : T.soft,
@@ -167,8 +167,8 @@ export function DrillPanel({
       </div>
 
       <div
-        className="mt-4 rounded p-3 text-xs"
-        style={{ background: T.bg, color: T.soft, lineHeight: 1.6 }}
+        className="mt-4 rounded-md px-4 py-3 text-sm"
+        style={{ background: T.blue100, border: `1px solid ${T.blue300}`, color: T.soft, lineHeight: 1.6 }}
       >
         <b style={{ color: T.ink }}>How to read this.</b> Adjusted change divides the observed
         before/after movement by the movement in the prior-year baseline over the same calendar

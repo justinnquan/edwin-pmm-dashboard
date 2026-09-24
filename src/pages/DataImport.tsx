@@ -15,8 +15,8 @@
    store behind /api/live, gated by the publish password, and never to the repo.
 =========================================================================== */
 import { useState } from "react";
-import { T } from "../theme/tokens";
-import { Card, Chip } from "../components/primitives";
+import { T, eyebrow } from "../theme/tokens";
+import { Card, Chip, fieldStyle } from "../components/primitives";
 import { useDataSource } from "../state/dataStore";
 import { TABLES, templateFor, type TableSpec } from "../data/file/schema";
 import {
@@ -38,7 +38,7 @@ import { METRIC_LABEL } from "../analytics/constants";
 
 const TONE: Record<Severity, { color: string; label: string }> = {
   error: { color: T.warn, label: "Blocking" },
-  warning: { color: "#B7791F", label: "Limitation" },
+  warning: { color: T.caution, label: "Limitation" },
   info: { color: T.soft, label: "Note" },
 };
 
@@ -65,13 +65,13 @@ function TableCard({ spec, file, onPick }: { spec: TableSpec; file?: File; onPic
         <div className="flex items-center gap-2">
           <button
             onClick={() => download(spec.file, templateFor(spec))}
-            className="rounded px-2 py-1 text-xs font-semibold"
-            style={{ color: T.blue, border: `1px solid ${T.blue}55`, background: T.surface }}
+            className="phia-ghost rounded-md px-2 py-1 text-xs font-bold"
+            style={{ color: T.blue, border: `1px solid ${T.blue}`, background: T.surface }}
           >
             Download template
           </button>
           <label
-            className="rounded px-2 py-1 text-xs font-semibold cursor-pointer"
+            className="rounded-md px-3 py-1.5 text-xs font-bold cursor-pointer"
             style={{ color: T.surface, background: T.blue }}
           >
             Choose file
@@ -84,7 +84,7 @@ function TableCard({ spec, file, onPick }: { spec: TableSpec; file?: File; onPic
           </label>
         </div>
       </div>
-      <p className="mt-2 text-xs" style={{ color: T.soft, lineHeight: 1.6 }}>
+      <p className="mt-2 text-sm" style={{ color: T.soft, lineHeight: 1.6 }}>
         <b style={{ color: T.ink }}>{spec.grain}</b> {spec.purpose}
       </p>
       <details className="mt-2">
@@ -116,9 +116,9 @@ function Report({ report, raw }: { report: ValidationReport; raw: InputFiles | n
 
   return (
     <div className="flex flex-col gap-4">
-      <Card className="p-5">
+      <Card className="p-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-sm font-extrabold uppercase" style={{ color: T.navy, letterSpacing: "0.07em" }}>
+          <h2 className="text-lg font-bold" style={{ color: T.ink, lineHeight: "24px" }}>
             Validation report
           </h2>
           <Chip tone={report.usable ? (s.canAdjust ? "good" : "warn") : "warn"}>
@@ -144,10 +144,10 @@ function Report({ report, raw }: { report: ValidationReport; raw: InputFiles | n
               ["Missing days", int(s.missingDates)],
             ].map(([k, v]) => (
               <div key={k}>
-                <div className="text-xs uppercase" style={{ color: T.muted, letterSpacing: "0.06em" }}>
+                <div className="text-xs uppercase" style={eyebrow}>
                   {k}
                 </div>
-                <div className="text-lg font-extrabold" style={{ color: T.ink }}>
+                <div className="text-lg font-bold" style={{ color: T.ink }}>
                   {v}
                 </div>
               </div>
@@ -157,10 +157,10 @@ function Report({ report, raw }: { report: ValidationReport; raw: InputFiles | n
 
         {report.usable && !s.canAdjust && (
           <div
-            className="mt-4 rounded p-3 text-xs"
-            style={{ border: `1px solid ${T.warn}55`, background: `${T.warn}0D`, lineHeight: 1.6 }}
+            className="mt-4 rounded-md px-4 py-3 text-sm"
+            style={{ border: "1px solid #F2D79A", background: T.cautionBg, lineHeight: 1.6 }}
           >
-            <b style={{ color: T.warn }}>No seasonal baseline.</b> The dashboard compares each period
+            <b style={{ color: T.caution }}>No seasonal baseline.</b> The dashboard compares each period
             against the same calendar window a year earlier, so it needs {HISTORY_NEEDED} days of
             history and this file has {int(s.historyDays)}. It will load, but every seasonally-adjusted
             figure will report no baseline and you will see raw levels only — which for K-12 data means
@@ -181,8 +181,8 @@ function Report({ report, raw }: { report: ValidationReport; raw: InputFiles | n
       </Card>
 
       {report.findings.length > 0 && (
-        <Card className="p-5">
-          <h3 className="text-xs font-extrabold uppercase" style={{ color: T.navy, letterSpacing: "0.06em" }}>
+        <Card className="p-6">
+          <h3 className="text-base font-bold" style={{ color: T.ink }}>
             {report.findings.length} finding{report.findings.length === 1 ? "" : "s"}
           </h3>
           <ul className="mt-3 flex flex-col gap-3">
@@ -214,8 +214,8 @@ function Report({ report, raw }: { report: ValidationReport; raw: InputFiles | n
       )}
 
       {report.usable && report.source && (
-        <Card className="p-5">
-          <h3 className="text-xs font-extrabold uppercase" style={{ color: T.navy, letterSpacing: "0.06em" }}>
+        <Card className="p-6">
+          <h3 className="text-base font-bold" style={{ color: T.ink }}>
             Preview in this tab
           </h3>
           <button
@@ -232,7 +232,7 @@ function Report({ report, raw }: { report: ValidationReport; raw: InputFiles | n
           >
             {swapped ? "Previewing this data" : "Preview in this tab"}
           </button>
-          <p className="mt-2 text-xs" style={{ color: T.soft, lineHeight: 1.6 }}>
+          <p className="mt-2 text-sm" style={{ color: T.soft, lineHeight: 1.6 }}>
             Replaces the dashboard's data in this tab only. Nothing is uploaded, and choosing Sample
             or Live in the rail leaves the preview. The gate thresholds (minimum sample and activity
             volume) were calibrated against synthetic magnitudes, so expect to re-tune them against
@@ -246,7 +246,7 @@ function Report({ report, raw }: { report: ValidationReport; raw: InputFiles | n
 
           {raw && (
             <div className="mt-5 pt-4" style={{ borderTop: `1px solid ${T.border}` }}>
-              <h3 className="text-xs font-extrabold uppercase" style={{ color: T.navy, letterSpacing: "0.06em" }}>
+              <h3 className="text-base font-bold" style={{ color: T.ink }}>
                 Publish as Live
               </h3>
               <p className="mt-1 text-xs" style={{ color: T.soft, lineHeight: 1.6 }}>
@@ -281,16 +281,16 @@ function Report({ report, raw }: { report: ValidationReport; raw: InputFiles | n
                   aria-label="Publish password"
                   placeholder="Publish password"
                   autoComplete="off"
-                  className="rounded px-2 py-1 text-sm"
-                  style={{ border: `1px solid ${T.border}`, color: T.ink, background: T.surface }}
+                  className="px-2.5 text-sm"
+                  style={{ ...fieldStyle, height: 34 }}
                 />
                 <button
                   type="submit"
                   disabled={!adminPw || publishing}
-                  className="rounded px-4 py-2 text-sm font-bold"
+                  className="rounded-md px-4 py-2 text-sm font-bold"
                   style={{
-                    color: T.surface,
-                    background: adminPw && !publishing ? T.navy : T.muted,
+                    color: adminPw && !publishing ? T.surface : T.faint,
+                    background: adminPw && !publishing ? T.navy : T.border,
                     cursor: adminPw && !publishing ? "pointer" : "not-allowed",
                   }}
                 >
@@ -370,7 +370,7 @@ function EdwinImport({
 
   return (
     <div>
-      <p className="text-xs" style={{ color: T.soft, lineHeight: 1.6 }}>
+      <p className="text-sm" style={{ color: T.soft, lineHeight: 1.6 }}>
         Takes the two files as they are: the weekly usage rollup as a markdown table, and the
         Pardot / YesWare / in-app workbook as .xlsx or saved as .csv.
       </p>
@@ -402,7 +402,7 @@ function EdwinImport({
               </div>
             </div>
             <label
-              className="rounded px-2 py-1 text-xs font-semibold cursor-pointer shrink-0"
+              className="rounded-md px-3 py-1.5 text-xs font-bold cursor-pointer shrink-0"
               style={{ color: T.surface, background: T.blue }}
             >
               Choose file
@@ -421,10 +421,10 @@ function EdwinImport({
         <button
           disabled={!ready || busy}
           onClick={run}
-          className="rounded px-4 py-2 text-sm font-bold"
+          className="rounded-md px-4 py-2 text-sm font-bold"
           style={{
-            color: T.surface,
-            background: ready && !busy ? T.blue : T.muted,
+            color: ready && !busy ? T.surface : T.faint,
+            background: ready && !busy ? T.blue : T.border,
             cursor: ready && !busy ? "pointer" : "not-allowed",
           }}
         >
@@ -468,12 +468,12 @@ export default function DataImport() {
 
   return (
     <div className="flex flex-col gap-4">
-      <Card className="p-5">
-        <h2 className="text-sm font-extrabold uppercase" style={{ color: T.navy, letterSpacing: "0.07em" }}>
+      <Card className="p-6">
+        <h2 className="text-lg font-bold" style={{ color: T.ink, lineHeight: "24px" }}>
           Current source
         </h2>
         <div className="mt-2 flex flex-wrap items-center gap-3">
-          <span className="text-lg font-extrabold" style={{ color: T.ink }}>
+          <span className="text-lg font-bold" style={{ color: T.ink }}>
             {/* The synthetic source sits underneath an unloaded Live; never name it as Live's. */}
             {mode === "live" && live.status !== "ready" ? "No live data loaded" : label}
           </span>
@@ -494,8 +494,8 @@ export default function DataImport() {
                 setRaw(null);
                 setFiles({});
               }}
-              className="rounded px-2 py-1 text-xs font-semibold"
-              style={{ color: T.blue, border: `1px solid ${T.blue}55`, background: T.surface }}
+              className="phia-ghost rounded-md px-2 py-1 text-xs font-bold"
+              style={{ color: T.blue, border: `1px solid ${T.blue}`, background: T.surface }}
             >
               Switch to Sample
             </button>
@@ -506,7 +506,7 @@ export default function DataImport() {
             {live.message}
           </p>
         )}
-        <p className="mt-2 text-xs" style={{ color: T.soft, lineHeight: 1.6 }}>
+        <p className="mt-2 text-sm" style={{ color: T.soft, lineHeight: 1.6 }}>
           Files are read in your browser. <b style={{ color: T.ink }}>Preview</b> keeps them in this
           tab's session storage — nothing is uploaded, it survives a reload, and it is discarded when
           you close the tab. <b style={{ color: T.ink }}>Publish as Live</b> sends the parsed exports
@@ -516,7 +516,7 @@ export default function DataImport() {
         </p>
       </Card>
 
-      <h2 className="mt-2 text-xs font-bold uppercase" style={{ color: T.muted, letterSpacing: "0.08em" }}>
+      <h2 className="mt-2 text-xs font-bold uppercase" style={eyebrow}>
         Get data in — choose one
       </h2>
 
@@ -574,10 +574,10 @@ export default function DataImport() {
                   setBusy(false);
                 }
               }}
-              className="rounded px-4 py-2 text-sm font-bold"
+              className="rounded-md px-4 py-2 text-sm font-bold"
               style={{
-                color: T.surface,
-                background: ready && !busy ? T.blue : T.muted,
+                color: ready && !busy ? T.surface : T.faint,
+                background: ready && !busy ? T.blue : T.border,
                 cursor: ready && !busy ? "pointer" : "not-allowed",
               }}
             >
@@ -595,7 +595,7 @@ export default function DataImport() {
 
       {report && (
         <div id="validation-report" className="flex flex-col gap-2" style={{ scrollMarginTop: 16 }}>
-          <div className="text-xs font-bold uppercase" style={{ color: T.muted, letterSpacing: "0.08em" }}>
+          <div className="text-xs font-bold uppercase" style={eyebrow}>
             Result · from {origin}
           </div>
           <Report key={reportKey} report={report} raw={raw} />

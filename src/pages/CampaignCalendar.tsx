@@ -10,9 +10,10 @@ import { src } from "../data/source";
 import { campaignsBetween } from "../analytics/attribution";
 import { useFilters } from "../state/filterStore";
 import { fmtRange } from "../lib/dates";
-import { T } from "../theme/tokens";
+import { T, num, eyebrow } from "../theme/tokens";
 import { Card } from "../components/primitives";
 import { typeColor, RELEASE_COLOR, CampaignTypeLegend } from "../components/campaignStyle";
+import { Icon } from "../components/Icon";
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -78,18 +79,19 @@ export default function CampaignCalendar() {
 
   return (
     <div className="flex flex-col gap-4">
-      <Card className="p-5">
+      <Card className="p-6">
         {/* month nav */}
         <div className="flex items-center justify-between">
           <button
             onClick={() => step(-1)}
-            className="rounded px-3 py-1 text-sm font-semibold"
-            style={{ color: T.soft, border: `1px solid ${T.border}` }}
+            className="phia-ghost rounded-md px-3 py-1.5 text-sm font-bold inline-flex items-center gap-2"
+            style={{ color: T.blue, border: `1px solid ${T.blue}`, background: T.surface }}
           >
-            ← Prev
+            <Icon name="chevron-left" size={12} />
+            Prev
           </button>
           <div className="text-center">
-            <div className="text-lg font-extrabold" style={{ color: T.ink }}>
+            <div className="text-lg font-bold" style={{ color: T.ink }}>
               {monthLabel}
             </div>
             <div className="text-xs" style={{ color: T.muted }}>
@@ -98,10 +100,11 @@ export default function CampaignCalendar() {
           </div>
           <button
             onClick={() => step(1)}
-            className="rounded px-3 py-1 text-sm font-semibold"
-            style={{ color: T.soft, border: `1px solid ${T.border}` }}
+            className="phia-ghost rounded-md px-3 py-1.5 text-sm font-bold inline-flex items-center gap-2"
+            style={{ color: T.blue, border: `1px solid ${T.blue}`, background: T.surface }}
           >
-            Next →
+            Next
+            <Icon name="chevron" size={12} />
           </button>
         </div>
 
@@ -111,7 +114,7 @@ export default function CampaignCalendar() {
             <div
               key={w}
               className="text-xs font-bold uppercase text-center pb-1"
-              style={{ color: T.muted, letterSpacing: "0.04em" }}
+              style={eyebrow}
             >
               {w}
             </div>
@@ -133,7 +136,7 @@ export default function CampaignCalendar() {
               >
                 {day && (
                   <>
-                    <div className="text-xs font-semibold" style={{ color: T.soft }}>
+                    <div className="text-xs font-semibold" style={{ ...num, color: T.muted }}>
                       {day}
                     </div>
                     <div className="mt-1 flex flex-col gap-1">
@@ -143,7 +146,7 @@ export default function CampaignCalendar() {
                           onClick={() => navigate(`/campaign/${c.id}`)}
                           title={`${c.name} · ${c.type} · ${c.channel} · ${c.audience}`}
                           className="text-left rounded px-2 py-1 text-xs font-semibold truncate"
-                          style={{ background: typeColor(c.type), color: "#fff", cursor: "pointer", border: "none" }}
+                          style={{ background: typeColor(c.type), color: T.surface, cursor: "pointer", border: "none" }}
                         >
                           {c.name}
                         </button>
@@ -152,8 +155,8 @@ export default function CampaignCalendar() {
                         <div
                           key={r.date + r.name}
                           title={`Release · ${r.name}`}
-                          className="rounded px-2 py-1 text-xs font-semibold truncate flex items-center gap-1"
-                          style={{ background: T.bg, color: RELEASE_COLOR, border: `1px solid ${RELEASE_COLOR}` }}
+                          className="rounded-md px-2 py-1 text-xs font-semibold truncate flex items-center gap-1"
+                          style={{ background: T.blue100, color: RELEASE_COLOR, border: `1px solid ${T.blue200}` }}
                         >
                           <span
                             style={{ width: 7, height: 7, background: RELEASE_COLOR, transform: "rotate(45deg)", display: "inline-block" }}
@@ -174,7 +177,7 @@ export default function CampaignCalendar() {
         </div>
       </Card>
 
-      <p className="text-xs" style={{ color: T.muted, lineHeight: 1.6 }}>
+      <p className="text-sm" style={{ color: T.muted, lineHeight: 1.6 }}>
         Shows campaigns sent in the selected dates ({inRange.length} in {fmtRange(from, to)}). Click a
         chip to open that campaign's impact detail. Product releases are overlaid as outlined tags.
       </p>

@@ -6,6 +6,7 @@
 import { useId, useState, type ReactNode } from "react";
 import { T } from "../theme/tokens";
 import { Card } from "./primitives";
+import { Icon } from "./Icon";
 
 export function Collapsible({
   title,
@@ -25,14 +26,14 @@ export function Collapsible({
   const [open, setOpen] = useState(defaultOpen);
   const id = useId();
   return (
-    <Card className="overflow-hidden" style={open ? { borderColor: `${T.blue}66` } : {}}>
+    <Card className="overflow-hidden" style={open ? { borderColor: T.blue200 } : {}}>
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
         aria-controls={id}
-        className="w-full flex items-center gap-3 px-5 py-4 text-left"
-        style={{ background: open ? `${T.blue}08` : T.surface }}
+        className="w-full flex items-center gap-3 px-6 py-4 text-left"
+        style={{ background: open ? T.blue100 : T.surface }}
       >
         <span
           aria-hidden
@@ -42,20 +43,19 @@ export function Collapsible({
             height: 22,
             color: T.blue,
             transform: open ? "rotate(90deg)" : "none",
-            transition: "transform 120ms ease",
-            fontSize: 12,
+            transition: "transform 200ms cubic-bezier(0.16, 1, 0.3, 1)",
           }}
         >
-          ▶
+          <Icon name="chevron" size={14} />
         </span>
         <span className="flex-1 min-w-0">
           <span
-            className="block text-sm font-extrabold uppercase"
-            style={{ color: T.navy, letterSpacing: "0.07em" }}
+            className="block text-base font-bold"
+            style={{ color: T.ink }}
           >
             {title}
           </span>
-          <span className="block mt-0.5 text-xs" style={{ color: T.muted, lineHeight: 1.5 }}>
+          <span className="block mt-0.5 text-sm" style={{ color: T.muted, lineHeight: 1.5 }}>
             {summary}
           </span>
         </span>
@@ -63,7 +63,7 @@ export function Collapsible({
       </button>
       {/* Kept mounted while closed, so chosen files and unsaved edits survive
           collapsing the section. */}
-      <div id={id} hidden={!open} className="px-5 pb-5 pt-4" style={{ borderTop: `1px solid ${T.border}` }}>
+      <div id={id} hidden={!open} className="px-6 pb-6 pt-5" style={{ borderTop: `1px solid ${T.border}` }}>
         {children}
       </div>
     </Card>

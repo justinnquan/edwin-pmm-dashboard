@@ -5,7 +5,7 @@
    the card says so plainly and shows the same week last year for reference.
 =========================================================================== */
 import type { ReactNode } from "react";
-import { T, num } from "../theme/tokens";
+import { T, num, eyebrow } from "../theme/tokens";
 import { pct } from "../analytics/format";
 import { Card, Chip } from "./primitives";
 import { InfoTip, type KpiInfo } from "./InfoTip";
@@ -34,13 +34,17 @@ export function KpiCard({
   empty?: { title: string; lastYear?: string | null };
 }) {
   const tone = adjusted == null ? T.muted : adjusted >= 0 ? T.good : T.warn;
+  const toneBg = adjusted == null ? T.subtle : adjusted >= 0 ? T.goodBg : T.warnBg;
   return (
-    <Card className="p-4 flex flex-col justify-between" style={primary ? { borderColor: T.blue } : {}}>
+    <Card
+      className="flex flex-col justify-between"
+      style={{ padding: "16px 18px", ...(primary ? { borderColor: T.blue, boxShadow: T.shadowBrand } : {}) }}
+    >
       <div>
         <div className="flex items-start justify-between gap-2">
           <div
             className="text-xs font-bold uppercase flex items-center gap-1.5"
-            style={{ color: T.muted, letterSpacing: "0.06em" }}
+            style={eyebrow}
           >
             {label}
             {info && <InfoTip label={label} info={info} />}
@@ -48,7 +52,7 @@ export function KpiCard({
           {caveat && <Chip tone="warn">Association</Chip>}
         </div>
         {empty ? (
-          <div className="mt-3 text-base font-extrabold" style={{ color: T.soft, lineHeight: 1.3 }}>
+          <div className="mt-3 text-lg font-bold" style={{ color: T.soft, lineHeight: 1.3 }}>
             {empty.title}
           </div>
         ) : (
@@ -57,15 +61,16 @@ export function KpiCard({
             style={{
               ...num,
               color: primary ? T.blue : T.ink,
-              fontSize: primary ? 38 : 30,
-              fontWeight: 800,
+              fontSize: primary ? 36 : 30,
+              fontWeight: 700,
+              letterSpacing: "-0.02em",
               lineHeight: 1,
             }}
           >
             {value}
           </span>
           {unit && (
-            <span className="text-sm font-semibold" style={{ color: T.soft }}>
+            <span className="text-base font-bold" style={{ ...num, color: primary ? T.blue : T.soft }}>
               {unit}
             </span>
           )}
@@ -80,18 +85,21 @@ export function KpiCard({
           </div>
         )}
         {!empty && raw != null && (
-          <div className="flex items-center gap-3 text-xs" style={num}>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs" style={num}>
             <span style={{ color: T.muted }}>
               Raw <b style={{ color: T.soft }}>{raw}</b>
             </span>
-            <span style={{ color: T.border }}>│</span>
+            <span aria-hidden style={{ width: 1, height: 14, background: T.border }} />
             <span style={{ color: T.muted }}>
-              Adjusted <b style={{ color: tone }}>{adjusted == null ? "—" : pct(adjusted)}</b>
+              Adjusted{" "}
+              <b className="rounded-full px-2 py-0.5" style={{ color: tone, background: toneBg }}>
+                {adjusted == null ? "—" : pct(adjusted)}
+              </b>
             </span>
           </div>
         )}
         {!empty && note && (
-          <div className="mt-2 text-xs" style={{ color: T.muted, lineHeight: 1.5 }}>
+          <div className="mt-2 text-sm" style={{ color: T.muted, lineHeight: 1.5 }}>
             {note}
           </div>
         )}

@@ -26,11 +26,11 @@ export function InsightStrip({
   };
   if (!insights.length) {
     return (
-      <Card className="p-5">
-        <div className="text-sm font-semibold" style={{ color: T.ink }}>
+      <Card className="p-6">
+        <div className="text-base font-bold" style={{ color: T.ink }}>
           No material changes to report
         </div>
-        <div className="mt-1 text-xs" style={{ color: T.muted }}>
+        <div className="mt-1 text-sm" style={{ color: T.muted, lineHeight: 1.5 }}>
           Nothing in this segment cleared its materiality bar — a {pctAbs(MATERIALITY)} floor or{" "}
           {CONFIDENCE_Z}× the estimate's own uncertainty, whichever is higher — along with the{" "}
           {MIN_N}-teacher and {MIN_DAILY_ACTIVE}-daily-active minimums.
@@ -44,26 +44,26 @@ export function InsightStrip({
       style={{ gridTemplateColumns: "repeat(auto-fit,minmax(280px,1fr))" }}
     >
       {insights.map((i, k) => (
-        <Card key={k} className="p-4" style={{ borderLeft: `3px solid ${color[i.tone]}` }}>
+        <Card key={k} className="p-6" style={{ borderTop: `3px solid ${color[i.tone]}` }}>
           <Chip tone={i.tone === "positive" ? "good" : i.tone === "negative" ? "warn" : "blue"}>
             {word[i.tone]}
           </Chip>
-          <div className="mt-2 text-sm font-semibold" style={{ color: T.ink, lineHeight: 1.45 }}>
+          <div className="mt-3 text-base font-bold" style={{ color: T.ink, lineHeight: 1.35 }}>
             {i.text}
           </div>
-          <div className="mt-1 text-xs" style={{ color: T.muted, lineHeight: 1.5 }}>
+          <div className="mt-1.5 text-sm" style={{ color: T.muted, lineHeight: 1.5 }}>
             {i.detail}
           </div>
         </Card>
       ))}
       {suppressed > 0 && (
-        <Card className="p-4" style={{ background: T.bg }}>
+        <Card className="p-6" style={{ background: T.subtle, boxShadow: "none" }}>
           <Chip>Suppressed</Chip>
-          <div className="mt-2 text-sm font-semibold" style={{ color: T.soft, lineHeight: 1.45 }}>
+          <div className="mt-3 text-base font-bold" style={{ color: T.soft, lineHeight: 1.35 }}>
             {suppressed} change{suppressed === 1 ? "" : "s"} hidden — too few teachers or too little
             activity in the window to compare reliably.
           </div>
-          <div className="mt-1 text-xs" style={{ color: T.muted }}>
+          <div className="mt-1.5 text-sm" style={{ color: T.muted }}>
             Widen the segment or the date range to see them.
           </div>
         </Card>

@@ -44,11 +44,11 @@ function ChartTooltip({ active, payload, label, campaignsByDate, metric, hasLogi
   );
   return (
     <div
-      className="rounded-md p-3 text-xs"
+      className="rounded-lg p-3 text-xs"
       style={{
         background: T.surface,
         border: `1px solid ${T.border}`,
-        boxShadow: "0 4px 14px rgba(0,0,0,.09)",
+        boxShadow: T.shadowMd,
         minWidth: 220,
       }}
     >

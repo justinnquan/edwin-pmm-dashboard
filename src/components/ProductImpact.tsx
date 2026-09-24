@@ -5,7 +5,7 @@
 import type { ReactNode } from "react";
 import type { PublicCampaign, CampaignImpact, Metric } from "../data/schema";
 import { src } from "../data/source";
-import { T, num } from "../theme/tokens";
+import { T, num, eyebrow } from "../theme/tokens";
 import { MIN_N, METRIC_LABEL } from "../analytics/constants";
 import { pct } from "../analytics/format";
 import { campaignImpact } from "../analytics/attribution";
@@ -67,17 +67,17 @@ export function ProductImpactCard({
 }) {
   const r = campaignImpact(campaign, metric, ids, windowDays);
   return (
-    <div className="rounded p-3" style={{ background: T.bg, border: `1px solid ${T.border}` }}>
+    <div className="rounded-lg p-4" style={{ background: T.bg, border: `1px solid ${T.border}` }}>
       <div
         className="text-xs font-bold uppercase"
-        style={{ color: T.muted, letterSpacing: "0.05em" }}
+        style={eyebrow}
       >
         {METRIC_LABEL[metric]}
       </div>
       {r.state === "ok" ? (
         <>
           <div
-            className="mt-2 text-2xl font-extrabold"
+            className="mt-2 text-2xl font-bold"
             style={{ ...num, color: r.material ? (r.adjusted > 0 ? T.good : T.warn) : T.soft }}
           >
             {pct(r.adjusted)}{" "}

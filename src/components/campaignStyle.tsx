@@ -5,12 +5,16 @@
 import { src } from "../data/source";
 import { T } from "../theme/tokens";
 
+/* Phia tones. Sample's types and the channel names the real exports use
+   (Pardot, YesWare) both have a colour, so Live campaigns are not all grey. */
 export const TYPE_COLORS: Record<string, string> = {
-  "Product/feature launch": "#017ACC",
-  "Pardot email": "#003865",
-  "Re-engagement": "#E8633A",
-  "Release notes": "#1F8A70",
-  "In-app notification": "#7A5CC0",
+  "Product/feature launch": T.blue,
+  "Pardot email": T.navy,
+  "Re-engagement": T.warn,
+  "Release notes": T.good,
+  "In-app notification": T.logins,
+  Pardot: T.blue,
+  YesWare: T.logins,
 };
 
 export const typeColor = (type: string): string => TYPE_COLORS[type] ?? T.muted;

@@ -12,7 +12,7 @@ import {
   ResponsiveContainer,
   CartesianGrid,
 } from "recharts";
-import { T, num } from "../theme/tokens";
+import { T, num, eyebrow } from "../theme/tokens";
 import { fmtAxis, fmtShort } from "../lib/dates";
 import { LAST_YEAR_LABEL } from "../analytics/constants";
 import { pct, pctAbs, int } from "../analytics/format";
@@ -41,13 +41,14 @@ export function Funnel({ stages }: { stages: FunnelStage[] }) {
               </span>
             </div>
             <div
-              className="mt-1 rounded"
-              style={{ height: 22, background: T.bg, border: `1px solid ${T.border}`, overflow: "hidden" }}
+              className="mt-1 rounded-full"
+              style={{ height: 14, background: T.subtle, overflow: "hidden" }}
             >
               <div
                 style={{
                   width: `${Math.max(1, s.shareOfTop * 100)}%`,
                   height: "100%",
+                  borderRadius: 999,
                   background: T.blue,
                   opacity: 1 - i * 0.14,
                 }}
@@ -81,7 +82,7 @@ export function Gauge({ gauge, info }: { gauge: GaugeData; info?: KpiInfo }) {
       <div className="flex items-baseline justify-between gap-2">
         <span
           className="text-xs font-bold uppercase flex items-center gap-1.5"
-          style={{ color: T.muted, letterSpacing: "0.05em" }}
+          style={eyebrow}
         >
           {gauge.label}
           {info && <InfoTip label={gauge.label} info={info} />}
@@ -91,16 +92,16 @@ export function Gauge({ gauge, info }: { gauge: GaugeData; info?: KpiInfo }) {
         </span>
       </div>
       <div className="mt-2 flex items-baseline gap-2">
-        <span className="text-3xl font-extrabold" style={{ ...num, color }}>
+        <span className="text-3xl font-bold" style={{ ...num, color }}>
           {(gauge.value * 100).toFixed(0)}%
         </span>
         <span className="text-xs font-semibold" style={{ color }}>
           {met ? "at / above target" : `${((gauge.target - gauge.value) * 100).toFixed(0)} pts below`}
         </span>
       </div>
-      <div className="relative mt-2 rounded" style={{ height: 12, background: T.bg, border: `1px solid ${T.border}` }}>
+      <div className="relative mt-2 rounded-full" style={{ height: 10, background: T.subtle }}>
         <div
-          className="rounded-l"
+          className="rounded-full"
           style={{ width: `${Math.min(100, gauge.value * 100)}%`, height: "100%", background: color }}
         />
         {/* target marker */}
@@ -110,7 +111,7 @@ export function Gauge({ gauge, info }: { gauge: GaugeData; info?: KpiInfo }) {
           title={`Target ${pctAbs(gauge.target)}`}
         />
       </div>
-      <div className="mt-2 text-xs" style={{ color: T.muted, lineHeight: 1.5 }}>
+      <div className="mt-2 text-sm" style={{ color: T.muted, lineHeight: 1.5 }}>
         {gauge.sublabel}
       </div>
     </div>
@@ -126,8 +127,8 @@ export function FeatureBars({ features }: { features: FeatureAdoption[] }) {
           <span className="text-sm shrink-0" style={{ width: 210, color: T.soft }}>
             {f.feature}
           </span>
-          <div className="flex-1 rounded" style={{ height: 18, background: T.bg, border: `1px solid ${T.border}` }}>
-            <div style={{ width: `${Math.max(1, f.reach * 100)}%`, height: "100%", background: T.blue }} />
+          <div className="flex-1 rounded-full overflow-hidden" style={{ height: 12, background: T.subtle }}>
+            <div style={{ width: `${Math.max(1, f.reach * 100)}%`, height: "100%", background: T.blue, borderRadius: 999 }} />
           </div>
           <span className="text-sm font-bold shrink-0 text-right" style={{ ...num, width: 52, color: T.ink }}>
             {(f.reach * 100).toFixed(0)}%
@@ -142,7 +143,7 @@ export function FeatureBars({ features }: { features: FeatureAdoption[] }) {
 export function MiniTrend({ title, series }: { title: string; series: SeriesPoint[] }) {
   return (
     <div>
-      <div className="text-xs font-bold uppercase" style={{ color: T.soft, letterSpacing: "0.04em" }}>
+      <div className="text-xs font-bold uppercase" style={eyebrow}>
         {title}
       </div>
       <div style={{ width: "100%", height: 150 }} className="mt-1">
@@ -167,7 +168,7 @@ export function MiniTrend({ title, series }: { title: string; series: SeriesPoin
             <Tooltip
               labelFormatter={(l: string) => fmtShort(l)}
               formatter={(v: unknown) => (typeof v === "number" ? int(v) : "—")}
-              contentStyle={{ fontSize: 12, borderRadius: 6, border: `1px solid ${T.border}` }}
+              contentStyle={{ fontSize: 12, borderRadius: 8, border: `1px solid ${T.border}`, boxShadow: T.shadowMd, fontFamily: T.fontUI }}
             />
             <Line
               type="monotone"
