@@ -14,9 +14,10 @@
 ## What we are asking for
 
 **We already load two real Edwin exports.** The weekly usage rollup from Power BI
-and the Pardot / YesWare / in-app campaign workbook both import into the
-dashboard as they are kept today — 48 weeks of usage and 67 campaigns, covering
-August 2025 to June 2026.
+and the Pardot / YesWare campaign sheet both import into the dashboard as they
+are kept today, and are live on it — 48 weeks of usage (August 2025 to June
+2026) and 57 campaigns (September 2025 to March 2026). In-app notifications are
+not currently included.
 
 So this is not a request to start from nothing. It is a request for **four
 specific changes to a report that already exists**, each of which unlocks a
